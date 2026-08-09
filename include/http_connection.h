@@ -43,10 +43,10 @@ public:
         int bufsize=kReceptionBufSize
     );
     virtual ~HttpConnection();
-    void process();
+    virtual void process();
 protected:
-    bool recv() noexcept;
-    void send(const std::string&) noexcept;
+    virtual bool recv() noexcept;
+    virtual void send(const std::string&) noexcept;
     std::string execution() noexcept;
     void closeConnection(int& sockfd) noexcept;
 protected:

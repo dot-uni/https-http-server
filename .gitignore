@@ -2,3 +2,4 @@ build/
 server.log
 crypto-simulation-api*
 log_*
+*.pem

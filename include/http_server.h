@@ -27,8 +27,8 @@ namespace http {
 
 class HttpServer {
 public:
-    HttpServer(bool use_logger=true);
-    HttpServer(std::shared_ptr<logrr::ILogSink> logsink, bool use_logger=true);
+    HttpServer() : HttpServer(std::make_shared<logrr::ConsoleSink>()) {}
+    HttpServer(std::shared_ptr<logrr::ILogSink> logsink);
     virtual ~HttpServer();
     HttpServer(HttpServer&& serv) noexcept;
     HttpServer(const HttpServer&) = delete;
@@ -51,8 +51,9 @@ protected:
     void closeConnection(int& sockfd) noexcept;
     template <typename... Opts> bool setSockOptions(int sockfd, Opts&&... args) noexcept;
     template <typename Opt> bool applyOption(int sockfd, Opt&& arg, int opt) noexcept;
-    bool listenInternal(int max_connections, int bufsize);
-    ClientConnection acceptConnection();
+    bool listenInternal(int max_connections, int bufsize) noexcept;
+    virtual void clientIntakeCycle(int bufsize) noexcept;
+    ClientConnection acceptConnection() noexcept;
     void moveImpl(HttpServer&& serv) noexcept;
 protected:
     int sockfd_ = kEmptyDescriptor;

@@ -7,6 +7,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json 3.12.0 REQUIRED)
+
+set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3" CACHE PATH "" FORCE)
 find_package(OpenSSL REQUIRED)
 
 set(SOURCES
@@ -19,7 +21,9 @@ set(SOURCES
     router.cc
     http_message.cc
     http_server.cc
+    https_server.cc
     http_connection.cc
+    https_connection.cc
     http_codec.cc
 )
 list(TRANSFORM SOURCES PREPEND impl/)
@@ -28,4 +32,4 @@ add_executable(server ${SOURCES})
 target_include_directories(server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(server PRIVATE nlohmann_json::nlohmann_json)
 target_link_libraries(server PRIVATE fmt::fmt)
-target_link_libraries(server PRIVATE OpenSSL::Crypto)
+target_link_libraries(server PRIVATE OpenSSL::SSL OpenSSL::Crypto)

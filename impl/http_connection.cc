@@ -122,7 +122,7 @@ std::string HttpConnection::execution() noexcept {
         logrr::field("client_id", client_.id),
         logrr::field("client_ip", client_.ip),
         logrr::field("client_port", client_.port),
-        logrr::field("message", tostr::concat("\n__RESPONSE__\n\n", resp, "\n\n__RESPONSE__"))
+        logrr::field("message", tostr::concat("\n-----RESPONSE-----\n\n", resp, "\n\n-----RESPONSE-----"))
     });
 
     return resp;

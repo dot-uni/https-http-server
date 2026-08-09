@@ -41,12 +41,14 @@ namespace {
 namespace http {
 
     
-HttpServer::HttpServer(std::shared_ptr<logrr::ILogSink> logsink, bool use_logger) 
+HttpServer::HttpServer(std::shared_ptr<logrr::ILogSink> logsink) 
 {
-    if (use_logger) logger_ = std::make_shared<logrr::Logger>();
-    if (logger_ && !logger_->addSink(logsink)) {
-        logger_.reset();
-        logger_ = nullptr;
+    if (logsink) {
+        logger_ = std::make_shared<logrr::Logger>();
+        if (logger_ && !logger_->addSink(logsink)) {
+            logger_.reset();
+            logger_ = nullptr;
+        }
     }
     
     if (logger_) logger_->lCalled(__func__);
@@ -61,9 +63,6 @@ HttpServer::HttpServer(std::shared_ptr<logrr::ILogSink> logsink, bool use_logger
         logrr::field("message", "HttpServer object created")
     });
 }
-
-
-HttpServer::HttpServer(bool use_logger) : HttpServer(std::make_shared<logrr::ConsoleSink>(), use_logger) {}
 
 
 HttpServer::~HttpServer() 
@@ -245,7 +244,7 @@ template <typename Opt> bool HttpServer::applyOption(int sockfd, Opt&& arg, int 
     return true;
 }
 
-bool HttpServer::listenInternal(int max_connections, int bufsize) 
+bool HttpServer::listenInternal(int max_connections, int bufsize) noexcept
 {
     if (logger_) logger_->lCalled(__func__);
 
@@ -279,6 +278,17 @@ bool HttpServer::listenInternal(int max_connections, int bufsize)
     });
 
 
+    clientIntakeCycle(bufsize);
+
+    if (logger_) logger_->lExeced(__func__);
+    if (logger_) logger_->lExeced("listen");
+    return true;
+}
+
+void HttpServer::clientIntakeCycle(int bufsize) noexcept 
+{
+    if (logger_) logger_->lCalled(__func__);
+
     ClientConnection client;
     while(true) {
         client = acceptConnection();
@@ -289,13 +299,9 @@ bool HttpServer::listenInternal(int max_connections, int bufsize)
     }
 
     if (logger_) logger_->lExeced(__func__);
-    if (logger_) logger_->lExeced(
-        "bool http::HttpServer::listen(const char* host, const char* port, int max_connections, int bufsize)"
-    );
-    return true;
 }
 
-ClientConnection HttpServer::acceptConnection() 
+ClientConnection HttpServer::acceptConnection() noexcept
 {
     if (logger_) logger_->lCalled(__func__);
 

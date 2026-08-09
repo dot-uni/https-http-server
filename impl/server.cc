@@ -1,4 +1,4 @@
-#include "http_server.h"
+#include "https_server.h"
 
 /*
     Example
@@ -6,7 +6,7 @@
 
 
 int main() {
-    http::HttpServer server;
+    https::HttpsServer server;
     server.addSink(std::make_shared<logrr::FileSink>());
     server.listen();
 }   
