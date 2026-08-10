@@ -44,19 +44,19 @@ Response Router::route(Request&& req, const std::string& id) const noexcept
     Route& r = Router::registry()[key];
 
     Response resp;
-#if 0
     if constexpr (r.auth_req) {
-        /*
-        X-Timestamp: 1785286800123
-        X-Recv-Window: 5000
-        X-Signature: 91cbea002fd1...
-        */
-
+        /**
+         * Authentication verification is required here
+         * 
+         *      X-Timestamp: xxxx
+         *      X-Recv-Window: xxx
+         *      X-Signature: xxxxxx
+         */
+        resp = r.handler(std::forward<Request>(req), id);
     }
     else {
         resp = r.handler(std::forward<Request>(req), id);
     }
-#endif
     if (slogger_) slogger_->lExeced(__func__);
     return resp;
 }

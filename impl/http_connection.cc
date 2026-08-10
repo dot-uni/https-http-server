@@ -63,7 +63,7 @@ bool HttpConnection::recv() noexcept
     while(true) {
         numbytes = ::recv(client_.sockfd, buf, sizeof(buf), 0);
         if (numbytes == -1) {
-            if (slogger_) slogger_->lError(__func__, __LINE__, {
+            if (slogger_) slogger_->lError(__func__, __FILE__, __LINE__, {
                 logrr::field("message", "Error from ::recv"),
                 logrr::field("errno", errno),
                 logrr::field("errno_str", strerror(errno))
@@ -73,7 +73,7 @@ bool HttpConnection::recv() noexcept
             return false; 
         }
         else if (numbytes == 0) {
-            if (slogger_) slogger_->lWarning(__func__, __LINE__, {
+            if (slogger_) slogger_->lWarning(__func__, __FILE__, __LINE__, {
                 logrr::field("message", "Client disconnected"),
             }); 
             return false;

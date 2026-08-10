@@ -14,7 +14,7 @@ Request HttpCodec::parse(const std::string& raw_req)
     int end_headers = raw_req.find("\r\n\r\n");
 
     if (end_targets == std::string::npos || end_headers == std::string::npos) {
-        throw std::invalid_argument("raw_req"); 
+        throw std::invalid_argument("Bad request"); 
     }
 
     std::string targets = raw_req.substr(0, end_targets);
