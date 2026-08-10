@@ -44,7 +44,7 @@ Response Router::route(Request&& req, const std::string& id) const noexcept
     Route& r = Router::registry()[key];
 
     Response resp;
-    if constexpr (r.auth_req) {
+    if (r.auth_req) {
         /**
          * Authentication verification is required here
          * 
