@@ -2,7 +2,9 @@
 
 namespace https {
 
-HttpsServer::HttpsServer(std::shared_ptr<logrr::ILogSink> logsink) : HttpServer(logsink)
+HttpsServer::HttpsServer(const std::string& cert, const std::string& key) : HttpsServer(cert, key, std::make_shared<logrr::ConsoleSink>()) {}
+
+HttpsServer::HttpsServer(const std::string& cert, const std::string& key, std::shared_ptr<logrr::ILogSink> logsink) : HttpServer(logsink)
 {
     if (logger_) logger_->lCalled(__func__);
 
@@ -25,7 +27,7 @@ HttpsServer::HttpsServer(std::shared_ptr<logrr::ILogSink> logsink) : HttpServer(
 
     if (SSL_CTX_use_certificate_file(
         ctx_,
-        "cert.pem",
+        cert.c_str(),
         SSL_FILETYPE_PEM) <= 0) 
     {
         unsigned long ssl_err = ERR_get_error();
@@ -41,7 +43,7 @@ HttpsServer::HttpsServer(std::shared_ptr<logrr::ILogSink> logsink) : HttpServer(
 
     if (SSL_CTX_use_PrivateKey_file(
         ctx_,
-        "key.pem",
+        key.c_str(),
         SSL_FILETYPE_PEM) <= 0)
     {
         unsigned long ssl_err = ERR_get_error();

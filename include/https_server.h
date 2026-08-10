@@ -19,8 +19,8 @@ public:
 class HttpsServer : public http::HttpServer 
 {
 public:
-    HttpsServer() : HttpsServer(std::make_shared<logrr::ConsoleSink>()) {}
-    HttpsServer(std::shared_ptr<logrr::ILogSink>);
+    HttpsServer(const std::string& cert, const std::string& key);
+    HttpsServer(const std::string& cert, const std::string& key, std::shared_ptr<logrr::ILogSink>);
     virtual ~HttpsServer();
 protected:
     void clientIntakeCycle(int bufsize) noexcept override;
