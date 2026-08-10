@@ -7,8 +7,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json 3.12.0 REQUIRED)
-
-set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3" CACHE PATH "" FORCE)
 find_package(OpenSSL REQUIRED)
 
 set(SOURCES

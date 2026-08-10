@@ -37,8 +37,11 @@ protected:
     std::shared_ptr<logrr::StatusLogger> slogger_ = nullptr;
 };
 
+#define HTTP_CONCAT_IMPL(a, b) a##b
+#define HTTP_CONCAT(a, b) HTTP_CONCAT_IMPL(a, b)
+
 #define HTTP_REGISTER_HANDLER(method, path, func, auth) \
-    static ::http::Router::AutoRegister _auto_reg_##__LINE__(method, path, func, auth)
+    static ::http::Router::AutoRegistry HTTP_CONCAT(_auto_reg_, __LINE__)(method, path, func, auth)
 
 } // namespace http
 
