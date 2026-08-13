@@ -24,7 +24,10 @@ Request HttpCodec::parse(const std::string& raw_req)
     /// parse target
     int first_space = targets.find(' ');
     int second_space = targets.find(' ', first_space+1);
-    req.method = targets.substr(0, first_space);
+    req.method = toMethod(targets.substr(0, first_space));
+    if (req.method == Method::UNKNOWN) {
+        throw std::invalid_argument("Incorrectly specified method <UNKNOWN>");
+    }
     req.path = targets.substr(first_space, second_space);
     req.version = targets.substr(second_space);
 

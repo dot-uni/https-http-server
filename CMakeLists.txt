@@ -17,6 +17,7 @@ set(SOURCES
     logging.cc
     status_logging.cc
     router.cc
+    routing_tree.cc
     http_message.cc
     http_server.cc
     https_server.cc

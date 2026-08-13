@@ -14,7 +14,7 @@
 #include "ret_status.h"
 
 namespace http {
-    
+
 
 struct CaseInsensitiveHash {
     size_t operator()(const std::string& s) const {
@@ -36,9 +36,21 @@ struct CaseInsensitiveEqual {
 };
 
 
+enum class Method : uint8_t {
+    GET=0,
+    POST,
+    PUT,
+    DELETE,
+    PATCH,
+    UNKNOWN
+};
+
+std::string toString(Method m);
+Method toMethod(const std::string& s);
+
 struct Request 
 {
-    std::string method="";
+    Method method;
     std::string path="";
     std::string version="HTTP/1.1";
     std::unordered_map<std::string, std::string, 
