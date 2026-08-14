@@ -29,7 +29,7 @@ public:
         int bufsize=http::kReceptionBufSize
     );
     virtual ~HttpsConnection();
-    void process() override;
+    void process(const http::Router& router) override;
 protected:
     bool recv() noexcept override;
     void send(const std::string&) noexcept override;

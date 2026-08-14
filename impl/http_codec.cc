@@ -28,9 +28,8 @@ Request HttpCodec::parse(const std::string& raw_req)
     if (req.method == Method::UNKNOWN) {
         throw std::invalid_argument("Incorrectly specified method <UNKNOWN>");
     }
-    req.path = targets.substr(first_space, second_space);
-    req.version = targets.substr(second_space);
-
+    req.path = targets.substr(first_space+1, second_space-first_space-1);
+    req.version = targets.substr(second_space+1);
 
     /// parse header
     int beg = 0;
@@ -73,6 +72,7 @@ Request HttpCodec::parse(const std::string& raw_req)
         throw std::invalid_argument("The provided body is not in JSON format");
     }
 
+    req.id = uuid::generate_uuid_v4();
     return req;
 }
 
@@ -100,7 +100,7 @@ bool HttpCodec::parse_w(const std::string& raw_req)
     try {
         req_ = HttpCodec::parse(raw_req);
     } catch(std::invalid_argument& mess) {
-        if (slogger_) slogger_->log(retCode::InvalidJsonOrParams, __func__, __LINE__, {
+        if (slogger_) slogger_->log(retCode::InvalidJsonOrParams, __func__, __FILE__, __LINE__, {
             logrr::field("message", mess.what())
         });
         return false;
@@ -110,16 +110,15 @@ bool HttpCodec::parse_w(const std::string& raw_req)
     return true;
 }
 
-std::string HttpCodec::process(const std::string& raw_req, const std::string& id) {
+std::string HttpCodec::process(const std::string& raw_req, const Router& router) {
     if (slogger_) slogger_->lCalled(__func__);
 
     Response resp;
     if (!parse_w(raw_req)) {
-        resp = makeResp(retCode::InvalidJsonOrParams, id);
+        resp = makeResp(retCode::InvalidJsonOrParams);
     }
     else {
-        Router router(slogger_);
-        resp = router.route(std::forward<Request>(req_), id); 
+        resp = router.route(std::move(req_)); 
     }
 
     if (slogger_) slogger_->lExeced(__func__);

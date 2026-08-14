@@ -19,7 +19,7 @@ class RoutingTree
     struct RNode 
     {
         std::string id;
-        std::vector<std::unique_ptr<RNode>> childs; 
+        std::vector<std::shared_ptr<RNode>> childs; 
         std::optional<Handler> h = std::nullopt;
         RNode(
             std::string id, 
@@ -27,7 +27,7 @@ class RoutingTree
         );
     };
 
-    using Childs = std::unordered_map<std::string, std::vector<std::unique_ptr<RNode>>>;
+    using Childs = std::unordered_map<std::string, std::vector<std::shared_ptr<RNode>>>;
     Childs root_;   
 public:
     RoutingTree() = default;

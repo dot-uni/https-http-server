@@ -36,11 +36,11 @@ HttpsConnection::~HttpsConnection()
 }
 
 
-void HttpsConnection::process() 
+void HttpsConnection::process(const http::Router& router) 
 {
     if (slogger_) slogger_->lCalled(__func__);
     if (!HttpsConnection::recv()) return;
-    std::string resp = execution();
+    std::string resp = execution(router);
     HttpsConnection::send(resp);
 }
 
@@ -60,7 +60,7 @@ bool HttpsConnection::recv() noexcept
             resbytes += numbytes;
             if (resbytes >= http::kReceptionBufLimit) {
                 if (slogger_) slogger_->log(http::retCode::RequestBufferOverflow, __func__, __LINE__);
-                http::Response resp = makeResp(http::retCode::RequestBufferOverflow, client_.id);
+                http::Response resp = makeResp(http::retCode::RequestBufferOverflow);
                 HttpsConnection::send(http::HttpCodec::serialize(resp));
                 return false;
             }
@@ -103,7 +103,7 @@ bool HttpsConnection::recv() noexcept
             logrr::field("openssl_error", errbuf)
         });
 
-        http::Response resp = makeResp(http::retCode::InternalError, client_.id);
+        http::Response resp = makeResp(http::retCode::InternalError);
         HttpsConnection::send(http::HttpCodec::serialize(resp));
         return false;
     }

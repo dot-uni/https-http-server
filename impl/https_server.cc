@@ -2,9 +2,19 @@
 
 namespace https {
 
-HttpsServer::HttpsServer(const std::string& cert, const std::string& key) : HttpsServer(cert, key, std::make_shared<logrr::ConsoleSink>()) {}
+HttpsServer::HttpsServer(
+    const std::string& cert, 
+    const std::string& key, 
+    const http::Router& router
+) : HttpsServer(cert, key, router, std::make_shared<logrr::ConsoleSink>()) {}
 
-HttpsServer::HttpsServer(const std::string& cert, const std::string& key, std::shared_ptr<logrr::ILogSink> logsink) : HttpServer(logsink)
+
+HttpsServer::HttpsServer(
+    const std::string& cert, 
+    const std::string& key, 
+    http::Router router,
+    std::shared_ptr<logrr::ILogSink> logsink
+) : HttpServer(std::move(router), std::move(logsink)) 
 {
     if (logger_) logger_->lCalled(__func__);
 
@@ -102,7 +112,7 @@ void HttpsServer::clientIntakeCycle(int bufsize) noexcept
         }
 
         HttpsConnection connection(ssl, client, logger_, bufsize);
-        connection.process();
+        connection.process(router_);
     }
 
     if (logger_) logger_->lExeced(__func__);

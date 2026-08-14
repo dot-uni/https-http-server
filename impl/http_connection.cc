@@ -4,7 +4,7 @@ namespace http {
 
 
 HttpConnection::HttpConnection(
-    const ClientConnection& client, 
+    ClientConnection client, 
     int bufsize
 ) : client_(std::move(client)), bufsize_(bufsize) {
     if (slogger_) slogger_->lExeced(__func__);
@@ -12,7 +12,7 @@ HttpConnection::HttpConnection(
 
 
 HttpConnection::HttpConnection(
-    const ClientConnection& client, 
+    ClientConnection client, 
     std::shared_ptr<logrr::Logger> logger, 
     int bufsize
 ) : client_(std::move(client)), slogger_(std::static_pointer_cast<logrr::StatusLogger>(logger)), bufsize_(bufsize) {
@@ -21,10 +21,10 @@ HttpConnection::HttpConnection(
 
 
 HttpConnection::HttpConnection(
-    const ClientConnection& client, 
+    ClientConnection client, 
     std::shared_ptr<logrr::StatusLogger> slogger, 
     int bufsize
-) : client_(std::move(client)), slogger_(slogger), bufsize_(bufsize) {
+) : client_(std::move(client)), slogger_(std::move(slogger)), bufsize_(bufsize) {
     if (slogger_) slogger_->lExeced(__func__);
 }
 
@@ -43,11 +43,11 @@ HttpConnection::~HttpConnection()
     });
 }
 
-void HttpConnection::process() 
+void HttpConnection::process(const Router& router) 
 {
     if (slogger_) slogger_->lCalled(__func__);
     if (!HttpConnection::recv()) return;
-    std::string resp = execution();
+    std::string resp = execution(router);
     HttpConnection::send(resp);
 }
 
@@ -68,7 +68,7 @@ bool HttpConnection::recv() noexcept
                 logrr::field("errno", errno),
                 logrr::field("errno_str", strerror(errno))
             });
-            Response resp = makeResp(retCode::InternalError, client_.id);
+            Response resp = makeResp(retCode::InternalError);
             HttpConnection::send(HttpCodec::serialize(resp));
             return false; 
         }
@@ -82,7 +82,7 @@ bool HttpConnection::recv() noexcept
         resbytes += numbytes;
         if (resbytes >= kReceptionBufLimit) {
             if (slogger_) slogger_->log(retCode::RequestBufferOverflow, __func__, __LINE__);
-            Response resp = makeResp(retCode::RequestBufferOverflow, client_.id);
+            Response resp = makeResp(retCode::RequestBufferOverflow);
             HttpConnection::send(HttpCodec::serialize(resp));
             return false;
         }
@@ -112,11 +112,11 @@ bool HttpConnection::recv() noexcept
 }
 
 
-std::string HttpConnection::execution() noexcept {
+std::string HttpConnection::execution(const Router& router) noexcept {
     if (slogger_) slogger_->lCalled(__func__);
 
     HttpCodec codec(slogger_);
-    std::string resp = codec.process(req_, client_.id); 
+    std::string resp = codec.process(req_, router); 
 
     if (slogger_) slogger_->lExeced(__func__, {
         logrr::field("client_id", client_.id),

@@ -39,7 +39,10 @@ int64_t get_timestamp_ms()
     ).count();
 }
 
-Response makeResp(http::retCode retcode, const std::string& id, const nlohmann::ordered_json& result) 
+Response makeResp(
+    http::retCode retcode, 
+    const std::string& id, 
+    const nlohmann::ordered_json& result) 
 {
     return Response{
         .status = toHttpStatus(retcode),
@@ -53,6 +56,13 @@ Response makeResp(http::retCode retcode, const std::string& id, const nlohmann::
             {"result", result}
         }
     };
+}
+
+Response makeResp(
+    http::retCode retcode, 
+    const nlohmann::ordered_json& result) 
+{ 
+    return makeResp(retcode, uuid::generate_uuid_v4(), result); 
 }
 
 } // namespace http

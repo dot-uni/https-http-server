@@ -7,6 +7,7 @@
 #include <memory>
 #include <stdexcept>
 
+#include "uuid.h"
 #include "status_logging.h"
 #include "status.h"
 #include "http_message.h"
@@ -23,7 +24,7 @@ public:
     HttpCodec(std::shared_ptr<logrr::Logger>);
     virtual ~HttpCodec() = default;
 
-    std::string process(const std::string& raw_req, const std::string& id);
+    std::string process(const std::string& raw_req, const Router& router);
     static Request parse(const std::string& raw_req);
     static std::string serialize(Response& resp) noexcept;
 protected:

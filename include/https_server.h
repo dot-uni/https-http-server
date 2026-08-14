@@ -19,8 +19,15 @@ public:
 class HttpsServer : public http::HttpServer 
 {
 public:
-    HttpsServer(const std::string& cert, const std::string& key);
-    HttpsServer(const std::string& cert, const std::string& key, std::shared_ptr<logrr::ILogSink>);
+    HttpsServer(
+        const std::string& cert, 
+        const std::string& key, 
+        const http::Router& router);
+    HttpsServer(
+        const std::string& cert, 
+        const std::string& key, 
+        http::Router router,
+        std::shared_ptr<logrr::ILogSink>);
     virtual ~HttpsServer();
 protected:
     void clientIntakeCycle(int bufsize) noexcept override;

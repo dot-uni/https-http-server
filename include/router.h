@@ -14,6 +14,7 @@ namespace http {
 class Router {
 public:
     Router() = default;
+    Router(std::shared_ptr<logrr::ILogSink>);
     Router(std::shared_ptr<logrr::StatusLogger>);
     virtual ~Router() = default;
 public:
@@ -23,7 +24,7 @@ public:
     bool del(const std::string& path, Handler h) noexcept;
     bool patch(const std::string& path, Handler h) noexcept;
 
-    Response route(Request&& req, const std::string& id) const noexcept;
+    Response route(Request&& req) const noexcept;
 protected:
     RoutingTree rtree_;
     std::shared_ptr<logrr::StatusLogger> slogger_ = nullptr;

@@ -27,8 +27,8 @@ namespace http {
 
 class HttpServer {
 public:
-    HttpServer() : HttpServer(std::make_shared<logrr::ConsoleSink>()) {}
-    HttpServer(std::shared_ptr<logrr::ILogSink> logsink);
+    HttpServer(const Router& router) : HttpServer(router, std::make_shared<logrr::ConsoleSink>()) {}
+    HttpServer(const Router& router, std::shared_ptr<logrr::ILogSink> logsink);
     virtual ~HttpServer();
     HttpServer(HttpServer&& serv) noexcept;
     HttpServer(const HttpServer&) = delete;
@@ -62,6 +62,7 @@ protected:
     std::shared_ptr<logrr::Logger> logger_ = nullptr;
     bool is_running_ = false;
     std::mutex mtx_;
+    Router router_;
 };
 
 inline bool HttpServer::listen() { return listen("0.0.0.0"); }

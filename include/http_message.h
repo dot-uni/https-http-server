@@ -10,6 +10,7 @@
 #include <string>
 #include <chrono>
 
+#include "uuid.h"
 #include "status.h"
 #include "ret_status.h"
 
@@ -50,6 +51,7 @@ Method toMethod(const std::string& s);
 
 struct Request 
 {
+    std::string id;
     Method method;
     std::string path="";
     std::string version="HTTP/1.1";
@@ -72,6 +74,11 @@ int64_t get_timestamp_ms();
 Response makeResp(
     http::retCode retcode, 
     const std::string& id, 
+    const nlohmann::ordered_json& result=nlohmann::json::object()
+);
+
+Response makeResp(
+    http::retCode retcode, 
     const nlohmann::ordered_json& result=nlohmann::json::object()
 );
 

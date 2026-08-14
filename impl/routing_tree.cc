@@ -46,7 +46,7 @@ std::optional<Handler> RoutingTree::get(const Method& mtd, const std::string& pa
     auto root_it = root_.find(toString(mtd));
     if (root_it == root_.end()) return std::nullopt;
 
-    const std::vector<std::unique_ptr<RNode>>* childs = &root_it->second;
+    const std::vector<std::shared_ptr<RNode>>* childs = &root_it->second;
 
     std::vector<std::string> path_elems = parse(path);
     if (path_elems.empty()) return std::nullopt;
@@ -83,7 +83,7 @@ bool RoutingTree::add(const Method& mtd, std::vector<std::string>&& path_elems, 
 {
     if (path_elems.empty() || mtd == Method::UNKNOWN) return false;
 
-    std::vector<std::unique_ptr<RNode>>* childs = &root_[toString(mtd)];
+    std::vector<std::shared_ptr<RNode>>* childs = &root_[toString(mtd)];
     const size_t elem_size = path_elems.size();
 
     for (size_t i = 0; i < elem_size; ++i) {
@@ -104,9 +104,9 @@ bool RoutingTree::add(const Method& mtd, std::vector<std::string>&& path_elems, 
         }
         if (found) continue;
 
-        std::unique_ptr<RNode> new_child = is_last
-            ? std::make_unique<RNode>(value, std::move(h))
-            : std::make_unique<RNode>(value);
+        std::shared_ptr<RNode> new_child = is_last
+            ? std::make_shared<RNode>(value, std::move(h))
+            : std::make_shared<RNode>(value);
 
         childs->push_back(std::move(new_child));
         childs = &childs->back()->childs;

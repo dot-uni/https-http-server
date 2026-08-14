@@ -41,7 +41,7 @@ namespace {
 namespace http {
 
     
-HttpServer::HttpServer(std::shared_ptr<logrr::ILogSink> logsink) 
+HttpServer::HttpServer(const Router& router, std::shared_ptr<logrr::ILogSink> logsink) : router_(router)
 {
     if (logsink) {
         logger_ = std::make_shared<logrr::Logger>();
@@ -295,7 +295,7 @@ void HttpServer::clientIntakeCycle(int bufsize) noexcept
         if (client.sockfd == kInvalidSocket) continue;
         
         HttpConnection connection(client, logger_, bufsize);
-        connection.process();
+        connection.process(router_);
     }
 
     if (logger_) logger_->lExeced(__func__);

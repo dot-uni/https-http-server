@@ -29,30 +29,30 @@ struct ClientConnection
 class HttpConnection {
 public:
     HttpConnection(
-        const ClientConnection& client, 
+        ClientConnection client, 
         int bufsize=kReceptionBufSize
     );
     HttpConnection(
-        const ClientConnection& client, 
+        ClientConnection client, 
         std::shared_ptr<logrr::Logger> logger, 
         int bufsize=kReceptionBufSize
     );
     HttpConnection(
-        const ClientConnection& client, 
+        ClientConnection client, 
         std::shared_ptr<logrr::StatusLogger> slogger, 
         int bufsize=kReceptionBufSize
     );
     virtual ~HttpConnection();
-    virtual void process();
+    virtual void process(const Router& router);
 protected:
     virtual bool recv() noexcept;
     virtual void send(const std::string&) noexcept;
-    std::string execution() noexcept;
+    std::string execution(const Router& router) noexcept;
     void closeConnection(int& sockfd) noexcept;
 protected:
     ClientConnection client_; 
-    std::string req_;
     std::shared_ptr<logrr::StatusLogger> slogger_ = nullptr;
+    std::string req_;
     int bufsize_;
 };
 
