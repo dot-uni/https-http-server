@@ -75,7 +75,7 @@ bool RoutingTree::add(const Method& mtd, const std::string& path, Handler& h) no
 {
     if (mtd == Method::UNKNOWN) return false;
     std::vector<std::string> path_elems = parse(path);
-    return add(mtd, std::forward<std::vector<std::string>>(path_elems), h);
+    return add(mtd, std::move(path_elems), h);
 }
 
 
@@ -111,7 +111,18 @@ bool RoutingTree::add(const Method& mtd, std::vector<std::string>&& path_elems, 
         childs->push_back(std::move(new_child));
         childs = &childs->back()->childs;
     }
+    ++size_;
     return true;
+}
+
+
+size_t RoutingTree::size() const noexcept { return size_; }
+
+
+bool RoutingTree::empty() const noexcept
+{
+    if (!size_) return true;
+    return false;
 }
 
 } // namespace http

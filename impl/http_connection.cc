@@ -6,46 +6,36 @@ namespace http {
 HttpConnection::HttpConnection(
     ClientConnection client, 
     int bufsize
-) : client_(std::move(client)), bufsize_(bufsize) {
-    if (slogger_) slogger_->lExeced(__func__);
-}
+) : client_(std::move(client)), bufsize_(bufsize) {}
 
 
 HttpConnection::HttpConnection(
     ClientConnection client, 
     std::shared_ptr<logrr::Logger> logger, 
     int bufsize
-) : client_(std::move(client)), slogger_(std::static_pointer_cast<logrr::StatusLogger>(logger)), bufsize_(bufsize) {
-    if (slogger_) slogger_->lExeced(__func__);
-}
+) : client_(std::move(client)), slogger_(std::static_pointer_cast<logrr::StatusLogger>(logger)), bufsize_(bufsize) {}
 
 
 HttpConnection::HttpConnection(
     ClientConnection client, 
     std::shared_ptr<logrr::StatusLogger> slogger, 
     int bufsize
-) : client_(std::move(client)), slogger_(std::move(slogger)), bufsize_(bufsize) {
-    if (slogger_) slogger_->lExeced(__func__);
-}
+) : client_(std::move(client)), slogger_(std::move(slogger)), bufsize_(bufsize) {}
 
 
 HttpConnection::~HttpConnection() 
 {
-    if (slogger_) slogger_->lCalled(__func__);
-
     closeConnection(client_.sockfd);
-
-    if (slogger_) slogger_->lExeced(__func__, {
+    if (slogger_) slogger_->lInfo(__FILE_NAME__, __LINE__, __func__, {
         logrr::field("client_id", client_.id),
         logrr::field("client_ip", client_.ip),
         logrr::field("client_port", client_.port),
-        logrr::field("message", "Client socket was closed")
+        logrr::field("message", "Client socket was closed") 
     });
 }
 
 void HttpConnection::process(const Router& router) 
 {
-    if (slogger_) slogger_->lCalled(__func__);
     if (!HttpConnection::recv()) return;
     std::string resp = execution(router);
     HttpConnection::send(resp);
@@ -54,8 +44,6 @@ void HttpConnection::process(const Router& router)
 
 bool HttpConnection::recv() noexcept 
 {
-    if (slogger_) slogger_->lCalled(__func__);
-
     int numbytes, resbytes = 0;
     char buf[bufsize_];
     std::string req;
@@ -63,25 +51,25 @@ bool HttpConnection::recv() noexcept
     while(true) {
         numbytes = ::recv(client_.sockfd, buf, sizeof(buf), 0);
         if (numbytes == -1) {
-            if (slogger_) slogger_->lError(__func__, __FILE__, __LINE__, {
-                logrr::field("message", "Error from ::recv"),
+            if (slogger_) slogger_->lError(__FILE_NAME__, __LINE__, __func__, {
                 logrr::field("errno", errno),
-                logrr::field("errno_str", strerror(errno))
+                logrr::field("strerror", strerror(errno)),
+                logrr::field("message", "Error from ::recv")
             });
             Response resp = makeResp(retCode::InternalError);
             HttpConnection::send(HttpCodec::serialize(resp));
             return false; 
         }
         else if (numbytes == 0) {
-            if (slogger_) slogger_->lWarning(__func__, __FILE__, __LINE__, {
+            if (slogger_) slogger_->lWarning(__FILE_NAME__, __LINE__, __func__, {
                 logrr::field("message", "Client disconnected"),
-            }); 
+            });
             return false;
         }
 
         resbytes += numbytes;
         if (resbytes >= kReceptionBufLimit) {
-            if (slogger_) slogger_->log(retCode::RequestBufferOverflow, __func__, __LINE__);
+            if (slogger_) slogger_->log(retCode::RequestBufferOverflow, __FILE_NAME__, __LINE__, __func__);
             Response resp = makeResp(retCode::RequestBufferOverflow);
             HttpConnection::send(HttpCodec::serialize(resp));
             return false;
@@ -90,7 +78,7 @@ bool HttpConnection::recv() noexcept
         buf[numbytes] = '\0';
         req.append(buf);
 
-        if (slogger_) slogger_->lInfo(__func__, {
+        if (slogger_) slogger_->lInfo(__FILE_NAME__, __LINE__, __func__, {
             logrr::field("client_id", client_.id),
             logrr::field("client_ip", client_.ip),
             logrr::field("client_port", client_.port),
@@ -102,7 +90,7 @@ bool HttpConnection::recv() noexcept
 
     req_ = std::move(req);
     
-    if (slogger_) slogger_->lExeced(__func__, {
+    if (slogger_) slogger_->lInfo(__FILE_NAME__, __LINE__, __func__, {
         logrr::field("client_id", client_.id),
         logrr::field("client_ip", client_.ip),
         logrr::field("client_port", client_.port),
@@ -113,18 +101,8 @@ bool HttpConnection::recv() noexcept
 
 
 std::string HttpConnection::execution(const Router& router) noexcept {
-    if (slogger_) slogger_->lCalled(__func__);
-
     HttpCodec codec(slogger_);
     std::string resp = codec.process(req_, router); 
-
-    if (slogger_) slogger_->lExeced(__func__, {
-        logrr::field("client_id", client_.id),
-        logrr::field("client_ip", client_.ip),
-        logrr::field("client_port", client_.port),
-        logrr::field("message", tostr::concat("\n-----RESPONSE-----\n\n", resp, "\n\n-----RESPONSE-----"))
-    });
-
     return resp;
 }
 
@@ -143,15 +121,11 @@ void HttpConnection::send(const std::string& resp) noexcept
 
 void HttpConnection::closeConnection(int& sockfd) noexcept 
 {
-    if (slogger_) slogger_->lCalled(__func__);
-
     if (sockfd > 0) {
         close(sockfd);
         sockfd = kEmptyDescriptor;
     }
     else sockfd = kInvalidSocket;
-
-    if (slogger_) slogger_->lExeced(__func__);
 }
 
 } // namespace http

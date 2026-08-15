@@ -1,6 +1,7 @@
 #ifndef LOG_STATUS_INCLUDED
 #define LOG_STATUS_INCLUDED
 
+#include <string>
 #include <string_view>
 
 namespace logrr {
@@ -11,6 +12,7 @@ namespace logrr {
 
 enum class log_status : int16_t 
 {
+    unknown = 0,
     trace = 100,
     debug = 101,
     info = 102,
@@ -20,6 +22,12 @@ enum class log_status : int16_t
 };
 
 std::string_view obsolete_reason(log_status v);
+
+constexpr std::string_view log_color(log_status v);
+
+constexpr std::string_view log_reset = "\033[0m";
+
+std::string colored_reason(log_status v);
 
 } // namespace logrr 
 

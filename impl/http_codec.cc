@@ -7,14 +7,17 @@ namespace http {
 HttpCodec::HttpCodec(std::shared_ptr<logrr::Logger> logger) 
     : slogger_(std::static_pointer_cast<logrr::StatusLogger>(logger)) {}
 
-Request HttpCodec::parse(const std::string& raw_req) 
+std::optional<Request> HttpCodec::parse(const std::string& raw_req) 
 {
     Request req;
     int end_targets = raw_req.find("\r\n");
     int end_headers = raw_req.find("\r\n\r\n");
 
     if (end_targets == std::string::npos || end_headers == std::string::npos) {
-        throw std::invalid_argument("Bad request"); 
+        if (slogger_) slogger_->lWarning(__FILE_NAME__, __LINE__, __func__, {
+            logrr::field("message", "The request is not in the correct format")
+        });
+        return std::nullopt;
     }
 
     std::string targets = raw_req.substr(0, end_targets);
@@ -26,7 +29,10 @@ Request HttpCodec::parse(const std::string& raw_req)
     int second_space = targets.find(' ', first_space+1);
     req.method = toMethod(targets.substr(0, first_space));
     if (req.method == Method::UNKNOWN) {
-        throw std::invalid_argument("Incorrectly specified method <UNKNOWN>");
+        if (slogger_) slogger_->lWarning(__FILE_NAME__, __LINE__, __func__, {
+            logrr::field("message", "Incorrectly specified method <UNKNOWN>")
+        });
+        return std::nullopt;
     }
     req.path = targets.substr(first_space+1, second_space-first_space-1);
     req.version = targets.substr(second_space+1);
@@ -35,7 +41,10 @@ Request HttpCodec::parse(const std::string& raw_req)
     int beg = 0;
     int end = headers.find("\r\n"), colon;
     if (end == std::string::npos) {
-        throw std::invalid_argument("The header field is missing from the request");
+        if (slogger_) slogger_->lWarning(__FILE_NAME__, __LINE__, __func__, {
+            logrr::field("message", "The header field is missing from the request")
+        });
+        return std::nullopt;
     }
 
     while(true) {
@@ -60,7 +69,10 @@ Request HttpCodec::parse(const std::string& raw_req)
         if (end == std::string::npos) break;
     }
     if (!req.headers.count("Host")) {
-        throw std::invalid_argument("Host is not specified in header");
+        if (slogger_) slogger_->lWarning(__FILE_NAME__, __LINE__, __func__, {
+            logrr::field("message", "Host is not specified in header")
+        });
+        return std::nullopt;
     }
 
     /// parse body
@@ -69,7 +81,10 @@ Request HttpCodec::parse(const std::string& raw_req)
             req.body = nlohmann::json::parse(body); 
         }
     } catch(nlohmann::json::parse_error& mess) {
-        throw std::invalid_argument("The provided body is not in JSON format");
+        if (slogger_) slogger_->lWarning(__FILE_NAME__, __LINE__, __func__, {
+            logrr::field("message", "The provided body is not in JSON format")
+        });
+        return std::nullopt;
     }
 
     req.id = uuid::generate_uuid_v4();
@@ -95,24 +110,13 @@ std::string HttpCodec::serialize(Response& resp) noexcept
 
 bool HttpCodec::parse_w(const std::string& raw_req) 
 {
-    if (slogger_) slogger_->lCalled(__func__);
-
-    try {
-        req_ = HttpCodec::parse(raw_req);
-    } catch(std::invalid_argument& mess) {
-        if (slogger_) slogger_->log(retCode::InvalidJsonOrParams, __func__, __FILE__, __LINE__, {
-            logrr::field("message", mess.what())
-        });
-        return false;
-    }
-
-    if (slogger_) slogger_->lExeced(__func__);
+    auto req = HttpCodec::parse(raw_req);
+    if (!req) return false;
+    req_ = *req;
     return true;
 }
 
 std::string HttpCodec::process(const std::string& raw_req, const Router& router) {
-    if (slogger_) slogger_->lCalled(__func__);
-
     Response resp;
     if (!parse_w(raw_req)) {
         resp = makeResp(retCode::InvalidJsonOrParams);
@@ -120,8 +124,6 @@ std::string HttpCodec::process(const std::string& raw_req, const Router& router)
     else {
         resp = router.route(std::move(req_)); 
     }
-
-    if (slogger_) slogger_->lExeced(__func__);
     return HttpCodec::serialize(resp);
 }
 

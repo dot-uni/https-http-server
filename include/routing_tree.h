@@ -29,13 +29,15 @@ class RoutingTree
 
     using Childs = std::unordered_map<std::string, std::vector<std::shared_ptr<RNode>>>;
     Childs root_;   
+    size_t size_;
 public:
     RoutingTree() = default;
     virtual ~RoutingTree() = default;
 
     std::optional<Handler> get(const Method& mtd, const std::string& path) const noexcept;
-    // bool contain(const Method& mtd, const std::string& path);
     bool add(const Method& mtd, const std::string& path, Handler& h) noexcept;
+    size_t size() const noexcept;
+    bool empty() const noexcept;
 private:
     bool add(const Method& mtd, std::vector<std::string>&& path_elems, Handler h) noexcept;
 };

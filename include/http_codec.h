@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <memory>
 #include <stdexcept>
+#include <optional>
 
 #include "uuid.h"
 #include "status_logging.h"
@@ -25,7 +26,7 @@ public:
     virtual ~HttpCodec() = default;
 
     std::string process(const std::string& raw_req, const Router& router);
-    static Request parse(const std::string& raw_req);
+    std::optional<Request> parse(const std::string& raw_req);
     static std::string serialize(Response& resp) noexcept;
 protected:
     bool parse_w(const std::string& raw_req);

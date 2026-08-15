@@ -16,8 +16,6 @@ HttpsServer::HttpsServer(
     std::shared_ptr<logrr::ILogSink> logsink
 ) : HttpServer(std::move(router), std::move(logsink)) 
 {
-    if (logger_) logger_->lCalled(__func__);
-
     SSL_library_init();
     SSL_load_error_strings();
     OpenSSL_add_ssl_algorithms();
@@ -28,9 +26,10 @@ HttpsServer::HttpsServer(
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        if (logger_) logger_->lError(__func__, __FILE__, __LINE__, {
+        if (logger_) logger_->lError(__FILE_NAME__, __LINE__, __func__, {
             logrr::field("OpenSSL_error_code", ssl_err),
             logrr::field("OpenSSL_error_string", buf),
+            logrr::field("message", "Failed to create SSL_CTX object")
         });
         throw SSLException(buf);
     }
@@ -44,9 +43,10 @@ HttpsServer::HttpsServer(
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        if (logger_) logger_->lError(__func__, __FILE__, __LINE__, {
+        if (logger_) logger_->lError(__FILE_NAME__, __LINE__, __func__, {
             logrr::field("OpenSSL_error_code", ssl_err),
             logrr::field("OpenSSL_error_string", buf),
+            logrr::field("message", "Failed to load certificate file")
         });
         throw SSLException(buf);
     }
@@ -60,44 +60,33 @@ HttpsServer::HttpsServer(
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        if (logger_) logger_->lError(__func__, __FILE__, __LINE__, {
+        if (logger_) logger_->lError(__FILE_NAME__, __LINE__, __func__, {
             logrr::field("OpenSSL_error_code", ssl_err),
             logrr::field("OpenSSL_error_string", buf),
+            logrr::field("message", "Failed to load private key file")
         });
         throw SSLException(buf);
     }
 
     if (!SSL_CTX_check_private_key(ctx_)) {
         std::string msg = "Private key does not match certificate";
-        if (logger_) logger_->lError(__func__, __FILE__, __LINE__, {
+        if (logger_) logger_->lError(__FILE_NAME__, __LINE__, __func__, {
             logrr::field("message", msg)
         });
         throw SSLException(msg);
     }
-
-    if (logger_) logger_->lExeced(__func__, {
-        logrr::field("message", "HttpsServer object created")
-    });
 }
 
 
 HttpsServer::~HttpsServer() 
 {
-    if (logger_) logger_->lCalled(__func__);
-
     SSL_CTX_free(ctx_);
     EVP_cleanup();
-
-    if (logger_) logger_->lExeced(__func__, {
-        logrr::field("message", "HttpsServer has shut down")
-    });
 }
 
 
 void HttpsServer::clientIntakeCycle(int bufsize) noexcept 
 {
-    if (logger_) logger_->lCalled(__func__);
-
     http::ClientConnection client;
     while(true) {
         client = acceptConnection();
@@ -105,7 +94,7 @@ void HttpsServer::clientIntakeCycle(int bufsize) noexcept
         
         SSL* ssl = sslHandshake(client);
         if (!ssl) {
-            if (logger_) logger_->lWarning(__func__, __FILE__, __LINE__, {
+            if (logger_) logger_->lWarning(__FILE_NAME__, __LINE__, __func__, {
                 logrr::field("message", "A secure connection with the client was not established")
             });
             continue;
@@ -114,24 +103,21 @@ void HttpsServer::clientIntakeCycle(int bufsize) noexcept
         HttpsConnection connection(ssl, client, logger_, bufsize);
         connection.process(router_);
     }
-
-    if (logger_) logger_->lExeced(__func__);
 }
 
 
 SSL* HttpsServer::sslHandshake(const http::ClientConnection& client) noexcept 
 {
-    if (logger_) logger_->lCalled(__func__);
-
     SSL* ssl = SSL_new(ctx_);
     if (!ssl) {
         unsigned long ssl_err = ERR_get_error();
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        if (logger_) logger_->lError(__func__, __FILE__, __LINE__, {
+        if (logger_) logger_->lError(__FILE_NAME__, __LINE__, __func__, {
             logrr::field("OpenSSL_error_code", ssl_err),
             logrr::field("OpenSSL_error_string", buf),
+            logrr::field("message", "Failed to create SSL object")
         });
         return nullptr;
     }
@@ -143,21 +129,20 @@ SSL* HttpsServer::sslHandshake(const http::ClientConnection& client) noexcept
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        if (logger_) logger_->lError(__func__, __FILE__, __LINE__, {
+        if (logger_) logger_->lWarning(__FILE_NAME__, __LINE__, __func__, {
             logrr::field("OpenSSL_error_code", ssl_err),
             logrr::field("OpenSSL_error_string", buf),
+            logrr::field("message", "Failed to perform SSL handshake")
         });
         return nullptr;
     }
     else {
-        if (logger_) logger_->lInfo(__func__, {
+        if (logger_) logger_->lInfo(__FILE_NAME__, __LINE__, __func__, {
             logrr::field("message", "TLS handshake successful")
         });
     }
 
     return ssl;
-
-    if (logger_) logger_->lExeced(__func__);
 }
 
 

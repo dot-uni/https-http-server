@@ -49,10 +49,9 @@ LogField field(const std::string& key, T&& value)
 struct LogRecord 
 {
     logrr::log_status status;
-    std::string_view detail_status="";
-    std::string_view message="";
-    std::string_view file="";
-    int line=0;
+    std::string_view func;      // __func__
+    std::string_view file;      // __FILE_NAME__
+    int line;
     std::string timepoint = timeToString(std::chrono::system_clock::now());
     std::vector<LogField> details = {};
     bool importance = true; 
@@ -135,51 +134,23 @@ public:
     Logger& operator=(Logger&&) noexcept;
 
     bool addSink(std::shared_ptr<ILogSink> sink) noexcept;
-    bool log(const LogRecord& record) noexcept;
+    
+    bool lInfo(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls={}) noexcept;
+    bool lError(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls={}) noexcept;
+    bool lWarning(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls={}) noexcept;
+    bool lCritical(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls={}) noexcept;
+    bool lDebug(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls={}) noexcept;
+    bool lTrace(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls={}) noexcept;
 
-    bool lInfo(const std::string& where) noexcept;
-    bool lInfo(const std::string& where, std::vector<LogField>&& dtls) noexcept;
-
-    bool lCalled(const std::string& where) noexcept;
-    bool lCalled(const std::string& where, std::vector<LogField>&& dtls) noexcept;
-
-    bool lExeced(const std::string& where) noexcept;
-    bool lExeced(const std::string& where, std::vector<LogField>&& dtls) noexcept;
-
-    bool lFailed(const std::string& where, std::vector<LogField>&& dtls) noexcept;
-    bool lFailed(const std::string& where, int line, std::vector<LogField>&& dtls) noexcept;
-    bool lFailed(const std::string& where, const std::string& file, std::vector<LogField>&& dtls) noexcept;
-    bool lFailed(const std::string& where, const std::string& file, int line, std::vector<LogField>&& dtls) noexcept;
-
-    bool lError(const std::string& where, std::vector<LogField>&& dtls) noexcept;
-    bool lError(const std::string& where, int line, std::vector<LogField>&& dtls) noexcept;
-    bool lError(const std::string& where, const std::string& file, std::vector<LogField>&& dtls) noexcept;
-    bool lError(const std::string& where, const std::string& file, int line, std::vector<LogField>&& dtls) noexcept;
-
-    bool lWarning(const std::string& where, std::vector<LogField>&& dtls) noexcept;
-    bool lWarning(const std::string& where, int line, std::vector<LogField>&& dtls) noexcept;
-    bool lWarning(const std::string& where, const std::string& file, std::vector<LogField>&& dtls) noexcept;
-    bool lWarning(const std::string& where, const std::string& file, int line, std::vector<LogField>&& dtls) noexcept;
-
-    bool lCritical(const std::string& where, const std::string& file, int line, std::vector<LogField>&& dtls) noexcept;
-    bool lDebug(const std::string& where, const std::string& file, int line, std::vector<LogField>&& dtls) noexcept;
-    bool lTrace(const std::string& where, const std::string& file, int line, std::vector<LogField>&& dtls) noexcept;
     bool flush() noexcept;
 protected:
-    bool standardTempl(
+    bool log(const LogRecord& record) noexcept;
+    bool logTempl(
         logrr::log_status status,
-        const std::string& where, 
-        std::vector<LogField>&& dtls={}, 
-        const std::string& sentence_prefix=""
-    ) noexcept;
-
-    bool detailedTempl(
-        logrr::log_status status,
-        const std::string& where, 
-        std::vector<LogField>&& dtls={}, 
-        const std::string& sentence_prefix="",
-        const std::string& file="", 
-        int line=0
+        const std::string& file, 
+        int line,
+        const std::string& func, 
+        std::vector<LogField>&& dtls
     ) noexcept;
 protected:
     std::mutex mtx_;

@@ -1,5 +1,14 @@
 #include "logging.h"
 
+namespace {
+
+void strerror(const std::string& msg) 
+{
+    std::cerr << __FILE_NAME__ << ":" << __LINE__ << " " << __func__ << R"( ")" << msg << R"(")" << '\n';
+} 
+
+} // namespace
+
 
 namespace logrr {
 
@@ -11,21 +20,15 @@ std::string SingleLineFormatter::format(const LogRecord& r) const noexcept
 {
     std::string base = "";
     try {
-        base = fmt::format("{} [{}] – {}", 
-            r.timepoint, logrr::obsolete_reason(r.status), r.message);
-        if (!r.file.empty()) {
-            base += fmt::format(R"(, "file": "{}")", r.file);
-        }
-        if (r.line) {
-            base += fmt::format(R"(, "line": {})", r.line);
-        }
+        base = fmt::format("{} [{}] {}:{} {}", 
+            r.timepoint, colored_reason(r.status), r.file, r.line, r.func);
         for (auto&& detail : r.details) {
-            base += fmt::format(R"(, "{}": {})", detail.first, detail.second);
+            base += fmt::format(R"( {}: "{}")", detail.first, detail.second);
         }
     }
     catch(fmt::format_error& mess) 
     {
-        std::cerr << __FILE__ << ":" << __LINE__ << " " << mess.what() << '\n';
+        strerror(mess.what());
     }
     return base;
 }
@@ -40,9 +43,9 @@ std::string JsonFormatter::format(const LogRecord& r) const noexcept
         {"timepoint", r.timepoint},
         {"status_code", r.status},
         {"status", logrr::obsolete_reason(r.status)},
-        {"message", r.message},
         {"file", r.file},
         {"line", r.line},
+        {"function", r.func},
         {"details", r.details}
     };
     return j.dump();
@@ -78,7 +81,7 @@ FileSink::FileSink(const std::string& file_name, std::shared_ptr<ILogFormatter> 
     file_.open(file_name, std::ios::app);
     if (!file_.is_open()) {
         throw std::runtime_error(fmt::format("{}:{} Failed to open file '{}': {}", 
-                                    __FILE__, __LINE__, file_name, strerror(errno)));
+                                    __FILE_NAME__, __LINE__, file_name, strerror(errno)));
     }
     formatter_ = std::move(formatter);
 }
@@ -96,7 +99,8 @@ bool FileSink::log(const LogRecord& record) noexcept
 
     file_ << inf << '\n';
     if (file_.fail()) {
-        std::cerr << __FILE__ << ":" << __LINE__ << " " << "Error writing to log file: " << std::strerror(errno) << '\n';
+        std::cerr << __FILE_NAME__ << ":" << __LINE__ << " " << "Error writing to log file: " << std::strerror(errno) << '\n';
+        strerror(tostr::concat("Error writing to log file: ", std::strerror(errno)));
         file_.clear(); 
         return false;
     }
@@ -111,7 +115,7 @@ bool FileSink::flush() noexcept
 {
     file_.flush();
     if (file_.fail()) {
-        std::cerr << __FILE__ << ":" << __LINE__ << " " << "Failed to flush file: " << std::strerror(errno) << '\n';
+        strerror(tostr::concat("Failed to flush file: ", std::strerror(errno)));
         file_.clear(); 
         return false;
     }
@@ -153,14 +157,14 @@ bool Logger::addSink(std::shared_ptr<ILogSink> sink) noexcept
     const char* sink_name = sink->name();
     for (auto&& existing : sinks_) {
         if (sink_name == existing->name()) {
-            std::cerr << __FILE__ << ":" << __LINE__ << " " << "The same sink already existing" << '\n';
+            strerror(tostr::concat("The same sink already existing: ", sink_name));
             return false;
         }
     }
     try {
         sinks_.push_back(std::move(sink));
     } catch(std::bad_alloc& mess) {
-        std::cerr << __FILE__ << ":" << __LINE__ << " " << mess.what() << '\n';
+        strerror(tostr::concat("Failed to add sink: ", sink_name, " - ", mess.what()));
         return false;
     }
     return true;
@@ -169,7 +173,7 @@ bool Logger::addSink(std::shared_ptr<ILogSink> sink) noexcept
 bool Logger::log(const LogRecord& record) noexcept 
 {
     if (sinks_.empty()) {
-        std::cerr << __FILE__ << ":" << __LINE__ << " " << "Sinks not added" << '\n';
+        strerror("Sinks not added");
         return false;
     }
 
@@ -184,166 +188,68 @@ bool Logger::log(const LogRecord& record) noexcept
     return success;
 }
 
-
-bool Logger::standardTempl(
+bool Logger::logTempl(
     logrr::log_status status,
-    const std::string& where, 
-    std::vector<LogField>&& dtls, 
-    const std::string& sentence_prefix
-) noexcept {
-return log(LogRecord{
-    .status = status,
-    .message = where + sentence_prefix,
-    .details = std::forward<std::vector<LogField>>(dtls),
-    .importance = false,
-    });
-}
-
-bool Logger::detailedTempl(
-    logrr::log_status status,
-    const std::string& where, 
-    std::vector<LogField>&& dtls, 
-    const std::string& sentence_prefix,
     const std::string& file, 
-    int line
+    int line,
+    const std::string& func, 
+    std::vector<LogField>&& dtls
 ) noexcept {
-return log(LogRecord{
-    .status = status,
-    .message = where + sentence_prefix,
-    .file = file,
-    .line = line,
-    .details = std::forward<std::vector<LogField>>(dtls),
+    return log(LogRecord{
+        .status = status,
+        .file = file,
+        .line = line,
+        .func = func,
+        .details = dtls
     });
 }
 
-
-/// lInfo
-bool Logger::lInfo(const std::string& where) noexcept 
+// lInfo
+bool Logger::lInfo(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls) noexcept
 {
-    return standardTempl(logrr::log_status::info, where);
-}
-
-bool Logger::lInfo(const std::string& where, std::vector<LogField>&& dtls) noexcept 
-{
-    return standardTempl(logrr::log_status::info, where, std::forward<std::vector<LogField>>(dtls));
-}
-
-
-/// lCalled
-bool Logger::lCalled(const std::string& where) noexcept 
-{
-    return standardTempl(logrr::log_status::info, where, {}, " was called");
-}
-
-bool Logger::lCalled(const std::string& where, std::vector<LogField>&& dtls) noexcept 
-{
-    return standardTempl(logrr::log_status::info, where, std::forward<std::vector<LogField>>(dtls), " was called");
-}
-
-
-/// lExeced
-bool Logger::lExeced(const std::string& where) noexcept 
-{
-    return standardTempl(logrr::log_status::info, where, {}, " executed successfully");
-}
-
-bool Logger::lExeced(const std::string& where, std::vector<LogField>&& dtls) noexcept 
-{
-    return standardTempl(logrr::log_status::info, where, std::forward<std::vector<LogField>>(dtls), " executed successfully");
-}
-
-
-/// lFailed
-bool Logger::lFailed(const std::string& where, std::vector<LogField>&& dtls) noexcept 
-{
-    return detailedTempl(logrr::log_status::error, where, std::forward<std::vector<LogField>>(dtls), " failed");
-}
-
-bool Logger::lFailed(const std::string& where, int line, std::vector<LogField>&& dtls) noexcept 
-{
-    return detailedTempl(logrr::log_status::error, where, std::forward<std::vector<LogField>>(dtls), " failed", "", line);
-}
-
-bool Logger::lFailed(const std::string& where, const std::string& file, std::vector<LogField>&& dtls) noexcept 
-{
-    return detailedTempl(logrr::log_status::error, where, std::forward<std::vector<LogField>>(dtls), " failed", file);
-}
-
-bool Logger::lFailed(const std::string& where, const std::string& file, int line, std::vector<LogField>&& dtls) noexcept
-{
-    return detailedTempl(logrr::log_status::error, where, std::forward<std::vector<LogField>>(dtls), " failed", file, line);
+    return logTempl(logrr::log_status::info, file, line, func, std::move(dtls));
 }
 
 
 /// lError
-bool Logger::lError(const std::string& where, std::vector<LogField>&& dtls) noexcept 
+bool Logger::lError(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls) noexcept
 {
-    return detailedTempl(logrr::log_status::error, where, std::forward<std::vector<LogField>>(dtls));
-}
-
-bool Logger::lError(const std::string& where, int line, std::vector<LogField>&& dtls) noexcept 
-{
-    return detailedTempl(logrr::log_status::error, where, std::forward<std::vector<LogField>>(dtls), "", "", line);
-}
-
-bool Logger::lError(const std::string& where, const std::string& file, std::vector<LogField>&& dtls) noexcept 
-{
-    return detailedTempl(logrr::log_status::error, where, std::forward<std::vector<LogField>>(dtls), "", file);
-}
-
-bool Logger::lError(const std::string& where, const std::string& file, int line, std::vector<LogField>&& dtls) noexcept
-{
-    return detailedTempl(logrr::log_status::error, where, std::forward<std::vector<LogField>>(dtls), "", file, line);
+    return logTempl(logrr::log_status::error, file, line, func, std::move(dtls));
 }
 
 
 /// lWarning
-bool Logger::lWarning(const std::string& where, std::vector<LogField>&& dtls) noexcept 
+bool Logger::lWarning(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls) noexcept
 {
-    return detailedTempl(logrr::log_status::warning, where, std::forward<std::vector<LogField>>(dtls));
-}
-
-bool Logger::lWarning(const std::string& where, int line, std::vector<LogField>&& dtls) noexcept 
-{
-    return detailedTempl(logrr::log_status::warning, where, std::forward<std::vector<LogField>>(dtls), "", "", line);
-}
-
-bool Logger::lWarning(const std::string& where, const std::string& file, std::vector<LogField>&& dtls) noexcept 
-{
-    return detailedTempl(logrr::log_status::warning, where, std::forward<std::vector<LogField>>(dtls), "", file);
-}
-
-bool Logger::lWarning(const std::string& where, const std::string& file, int line, std::vector<LogField>&& dtls) noexcept
-{
-    return detailedTempl(logrr::log_status::warning, where, std::forward<std::vector<LogField>>(dtls), "", file, line);
+    return logTempl(logrr::log_status::warning, file, line, func, std::move(dtls));
 }
 
 
 /// lCritical
-bool Logger::lCritical(const std::string& where, const std::string& file, int line, std::vector<LogField>&& dtls) noexcept
+bool Logger::lCritical(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls) noexcept
 {
-    return detailedTempl(logrr::log_status::critical, where, std::forward<std::vector<LogField>>(dtls), "", file, line);
+    return logTempl(logrr::log_status::critical, file, line, func, std::move(dtls));
 }
 
 
 /// lDebug
-bool Logger::lDebug(const std::string& where, const std::string& file, int line, std::vector<LogField>&& dtls) noexcept
+bool Logger::lDebug(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls) noexcept
 {
-    return detailedTempl(logrr::log_status::debug, where, std::forward<std::vector<LogField>>(dtls), "", file, line);
+    return logTempl(logrr::log_status::debug, file, line, func, std::move(dtls));
 }
 
 
 /// lTrace
-bool Logger::lTrace(const std::string& where, const std::string& file, int line, std::vector<LogField>&& dtls) noexcept
+bool Logger::lTrace(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls) noexcept
 {
-    return detailedTempl(logrr::log_status::trace, where, std::forward<std::vector<LogField>>(dtls), "", file, line);
+    return logTempl(logrr::log_status::trace, file, line, func, std::move(dtls));
 }
 
 
 bool Logger::flush() noexcept 
 {
     if (sinks_.empty()) {
-        std::cerr << __FILE__ << ":" << __LINE__ << " " << "Sinks not added" << '\n';
+        strerror("Sinks not added");
         return false;
     }
 

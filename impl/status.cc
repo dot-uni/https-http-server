@@ -1,5 +1,5 @@
 #include "status.h"
-
+#include <iostream>
 
 namespace http {
 
@@ -191,5 +191,19 @@ std::string_view obsolete_reason(status v)
     return "<unknown-status>";
 }
 
+
+logrr::log_status to_log_status(status v)
+{
+    switch(static_cast<unsigned>(v) / 100) {
+        case 1:     return logrr::log_status::info;
+        case 2:     return logrr::log_status::info;
+        case 3:     return logrr::log_status::info;
+        case 4:     return logrr::log_status::warning;
+        case 5:     return logrr::log_status::error;
+        default:
+            break;
+    }
+    return logrr::log_status::unknown;
+}
 
 } // namesapce http

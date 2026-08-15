@@ -27,18 +27,13 @@ HttpsConnection::HttpsConnection(
 
 HttpsConnection::~HttpsConnection()
 {
-    if (slogger_) slogger_->lCalled(__func__);
-
     SSL_shutdown(ssl_);
     SSL_free(ssl_);
-
-    if (slogger_) slogger_->lExeced(__func__);
 }
 
 
 void HttpsConnection::process(const http::Router& router) 
 {
-    if (slogger_) slogger_->lCalled(__func__);
     if (!HttpsConnection::recv()) return;
     std::string resp = execution(router);
     HttpsConnection::send(resp);
@@ -47,8 +42,6 @@ void HttpsConnection::process(const http::Router& router)
 
 bool HttpsConnection::recv() noexcept 
 {
-    if (slogger_) slogger_->lCalled(__func__);
-
     char buf[bufsize_];
     std::string req;
     int resbytes = 0;
@@ -59,7 +52,7 @@ bool HttpsConnection::recv() noexcept
         if (numbytes > 0) {
             resbytes += numbytes;
             if (resbytes >= http::kReceptionBufLimit) {
-                if (slogger_) slogger_->log(http::retCode::RequestBufferOverflow, __func__, __LINE__);
+                if (slogger_) slogger_->log(http::retCode::RequestBufferOverflow, __FILE_NAME__, __LINE__, __func__);
                 http::Response resp = makeResp(http::retCode::RequestBufferOverflow);
                 HttpsConnection::send(http::HttpCodec::serialize(resp));
                 return false;
@@ -67,12 +60,13 @@ bool HttpsConnection::recv() noexcept
 
             req.append(buf, numbytes);
 
-            if (slogger_) slogger_->lInfo(__func__, {
+            if (slogger_) slogger_->lInfo(__FILE_NAME__, __LINE__, __func__, {
                 logrr::field("client_id", client_.id),
                 logrr::field("client_ip", client_.ip),
                 logrr::field("client_port", client_.port),
                 logrr::field("message", tostr::concat(numbytes, " bytes were received"))
             });
+
 
             if (numbytes < bufsize_) break; 
             continue;                        
@@ -81,12 +75,15 @@ bool HttpsConnection::recv() noexcept
         int err = SSL_get_error(ssl_, numbytes);
 
         if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+            if (slogger_) slogger_->lInfo(__FILE_NAME__, __LINE__, __func__, {
+                logrr::field("message", "SSL_read returned SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE, continuing to read")
+            });
             continue;
         }
 
         if (err == SSL_ERROR_ZERO_RETURN) {
-            if (slogger_) slogger_->lWarning(__func__, __FILE__, __LINE__, {
-                logrr::field("message", "Client closed TLS connection (close_notify)"),
+            if (slogger_) slogger_->lWarning(__FILE_NAME__, __LINE__, __func__, {
+                logrr::field("message", "Client closed TLS connection (close_notify)")
             });
             return false;
         }
@@ -95,12 +92,12 @@ bool HttpsConnection::recv() noexcept
         char errbuf[256];
         ERR_error_string_n(sslErr, errbuf, sizeof(errbuf));
 
-        if (slogger_) slogger_->lError(__func__, __FILE__, __LINE__, {
-            logrr::field("message", "Error from SSL_read"),
-            logrr::field("ssl_error_code", err),
+        if (slogger_) slogger_->lError(__FILE_NAME__, __LINE__, __func__, {
             logrr::field("errno", errno),
-            logrr::field("errno_str", strerror(errno)),
-            logrr::field("openssl_error", errbuf)
+            logrr::field("strerror", strerror(errno)),
+            logrr::field("ssl_error_code", err),
+            logrr::field("openssl_error", errbuf),
+            logrr::field("message", "Error from SSL_read")
         });
 
         http::Response resp = makeResp(http::retCode::InternalError);
@@ -110,7 +107,7 @@ bool HttpsConnection::recv() noexcept
 
     req_ = std::move(req);
 
-    if (slogger_) slogger_->lExeced(__func__, {
+    if (slogger_) slogger_->lInfo(__FILE_NAME__, __LINE__, __func__, {
         logrr::field("client_id", client_.id),
         logrr::field("client_ip", client_.ip),
         logrr::field("client_port", client_.port),
@@ -122,8 +119,6 @@ bool HttpsConnection::recv() noexcept
 
 void HttpsConnection::send(const std::string& resp) noexcept 
 {
-    if (slogger_) slogger_->lCalled(__func__);
-
     size_t total_sent = 0;
     size_t all_bytes = resp.size();
 
@@ -139,12 +134,15 @@ void HttpsConnection::send(const std::string& resp) noexcept
         int err = SSL_get_error(ssl_, numbytes);
 
         if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+            if (slogger_) slogger_->lInfo(__FILE_NAME__, __LINE__, __func__, {
+                logrr::field("message", "SSL_write returned SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE, continuing to write")
+            });
             continue;
         }
 
         if (err == SSL_ERROR_ZERO_RETURN) {
-            if (slogger_) slogger_->lWarning(__func__, __FILE__, __LINE__, {
-                logrr::field("message", "Connection closed by peer during SSL_write"),
+            if (slogger_) slogger_->lWarning(__FILE_NAME__, __LINE__, __func__, {
+                logrr::field("message", "Connection closed by peer during SSL_write")
             });
             return;
         }
@@ -153,17 +151,15 @@ void HttpsConnection::send(const std::string& resp) noexcept
         char errbuf[256];
         ERR_error_string_n(sslErr, errbuf, sizeof(errbuf));
 
-        if (slogger_) slogger_->lError(__func__, __FILE__, __LINE__, {
-            logrr::field("message", "Error from SSL_write"),
-            logrr::field("ssl_error_code", err),
+        if (slogger_) slogger_->lError(__FILE_NAME__, __LINE__, __func__, {
             logrr::field("errno", errno),
-            logrr::field("errno_str", strerror(errno)),
-            logrr::field("openssl_error", errbuf)
+            logrr::field("strerror", strerror(errno)),
+            logrr::field("ssl_error_code", err),
+            logrr::field("openssl_error", errbuf),
+            logrr::field("message", "Error from SSL_write")
         });
         return;
     }
-
-    if (slogger_) slogger_->lExeced(__func__);
 }
 
 } // namespace https 
