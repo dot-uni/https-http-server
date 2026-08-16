@@ -7,22 +7,29 @@ namespace logrr {
  * log with RetCode
  */
 
-
 bool StatusLogger::log(
     http::retCode code, 
     const std::string& file, 
-    int line, const std::string& func, 
+    int line, 
+    const std::string& func, 
     logrr::log_status log_status
 ) noexcept
 {
     http::status s = http::toHttpStatus(code);
-    return logTempl(log_status, file, line, func, {
-        logrr::field("retCode", code),
-        logrr::field("retMesg", http::retMesg(code)),
-        logrr::field("status", s),
-        logrr::field("obsolete_reason", http::obsolete_reason(s))
+    return Logger::log(LogRecord{
+        .status = log_status,
+        .file = file,
+        .line = line,
+        .func = func,
+        .details = {
+            logrr::field("retCode", code),
+            logrr::field("retMesg", http::retMesg(code)),
+            logrr::field("status", s),
+            logrr::field("obsolete_reason", http::obsolete_reason(s))
+        }
     });
 }
+
  
 bool StatusLogger::log(
     http::retCode code, 
@@ -41,7 +48,13 @@ bool StatusLogger::log(
         logrr::field("obsolete_reason", http::obsolete_reason(s))
     };
     dtls.insert(dtls.end(), add_dtls.begin(), add_dtls.end());
-    return logTempl(log_status, file, line, func, std::move(dtls));
+    return Logger::log(LogRecord{
+        .status = log_status,
+        .file = file,
+        .line = line,
+        .func = func,
+        .details = std::move(dtls)
+    });
 }
 
 
@@ -49,20 +62,26 @@ bool StatusLogger::log(
  * log with HTTP status
  */
 
-
 bool StatusLogger::log(
     http::status code, 
     const std::string& file, 
     int line, 
     const std::string& func, 
     logrr::log_status log_status
-) noexcept
+) noexcept 
 {
-    return logTempl(log_status, file, line, func, {
-        logrr::field("status", code),
-        logrr::field("obsolete_reason", http::obsolete_reason(code))
+    return Logger::log(LogRecord{
+        .status = log_status,
+        .file = file,
+        .line = line,
+        .func = func,
+        .details = {
+            logrr::field("status", code),
+            logrr::field("obsolete_reason", http::obsolete_reason(code))
+        }
     });
 }
+
 
 bool StatusLogger::log(
     http::status code, 
@@ -79,7 +98,13 @@ bool StatusLogger::log(
     };
 
     dtls.insert(dtls.end(), add_dtls.begin(), add_dtls.end());
-    return logTempl(log_status, file, line, func, std::move(dtls));
+    return Logger::log(LogRecord{
+        .status = log_status,
+        .file = file,
+        .line = line,
+        .func = func,
+        .details = std::move(dtls)
+    });
 }
 
 } // namespace logrr

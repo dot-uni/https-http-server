@@ -13,7 +13,7 @@ void strerror(const std::string& msg)
 namespace logrr {
 
 
-/** logrr::SingleLineFormatter Implementation
+/** logrr::SingleLineFormatter 
  */
 
 std::string SingleLineFormatter::format(const LogRecord& r) const noexcept 
@@ -34,7 +34,7 @@ std::string SingleLineFormatter::format(const LogRecord& r) const noexcept
 }
 
 
-/** logrr::JsonFormatter Implementation
+/** logrr::JsonFormatter 
  */
 
 std::string JsonFormatter::format(const LogRecord& r) const noexcept 
@@ -52,7 +52,7 @@ std::string JsonFormatter::format(const LogRecord& r) const noexcept
 }
 
 
-/** logrr::ConsoleSink Implementation
+/** logrr::ConsoleSink 
  */
 
 ConsoleSink::ConsoleSink() : 
@@ -73,7 +73,7 @@ bool ConsoleSink::log(const LogRecord& record) noexcept
 }
 
 
-/** logrr::FileSink Implementation
+/** logrr::FileSink 
  */
 
 FileSink::FileSink(const std::string& file_name, std::shared_ptr<ILogFormatter> formatter) 
@@ -123,7 +123,7 @@ bool FileSink::flush() noexcept
 }
 
 
-/** logrr::Logger Implementation 
+/** logrr::Logger  
  */
 
 Logger::Logger(const Logger& logger) noexcept 
@@ -188,61 +188,82 @@ bool Logger::log(const LogRecord& record) noexcept
     return success;
 }
 
-bool Logger::logTempl(
-    logrr::log_status status,
-    const std::string& file, 
-    int line,
-    const std::string& func, 
-    std::vector<LogField>&& dtls
-) noexcept {
-    return log(LogRecord{
-        .status = status,
-        .file = file,
-        .line = line,
-        .func = func,
-        .details = dtls
-    });
-}
 
 // lInfo
 bool Logger::lInfo(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls) noexcept
 {
-    return logTempl(logrr::log_status::info, file, line, func, std::move(dtls));
+    return log(LogRecord{
+        .status = logrr::log_status::info,
+        .file = file,
+        .line = line,
+        .func = func,
+        .details = std::move(dtls)
+    });
 }
 
 
 /// lError
 bool Logger::lError(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls) noexcept
 {
-    return logTempl(logrr::log_status::error, file, line, func, std::move(dtls));
+    return log(LogRecord{
+        .status = logrr::log_status::error,
+        .file = file,
+        .line = line,
+        .func = func,
+        .details = std::move(dtls)
+    });
 }
 
 
 /// lWarning
 bool Logger::lWarning(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls) noexcept
 {
-    return logTempl(logrr::log_status::warning, file, line, func, std::move(dtls));
+    return log(LogRecord{
+        .status = logrr::log_status::warning,
+        .file = file,
+        .line = line,
+        .func = func,
+        .details = std::move(dtls)
+    });
 }
 
 
 /// lCritical
 bool Logger::lCritical(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls) noexcept
 {
-    return logTempl(logrr::log_status::critical, file, line, func, std::move(dtls));
+    return log(LogRecord{
+        .status = logrr::log_status::critical,
+        .file = file,
+        .line = line,
+        .func = func,
+        .details = std::move(dtls)
+    });
 }
 
 
 /// lDebug
 bool Logger::lDebug(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls) noexcept
 {
-    return logTempl(logrr::log_status::debug, file, line, func, std::move(dtls));
+    return log(LogRecord{
+        .status = logrr::log_status::debug,
+        .file = file,
+        .line = line,
+        .func = func,
+        .details = std::move(dtls)
+    });
 }
 
 
 /// lTrace
 bool Logger::lTrace(const std::string& file, int line, const std::string& func, std::vector<LogField>&& dtls) noexcept
 {
-    return logTempl(logrr::log_status::trace, file, line, func, std::move(dtls));
+    return log(LogRecord{
+        .status = logrr::log_status::trace,
+        .file = file,
+        .line = line,
+        .func = func,
+        .details = std::move(dtls)
+    });
 }
 
 

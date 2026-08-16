@@ -145,13 +145,6 @@ public:
     bool flush() noexcept;
 protected:
     bool log(const LogRecord& record) noexcept;
-    bool logTempl(
-        logrr::log_status status,
-        const std::string& file, 
-        int line,
-        const std::string& func, 
-        std::vector<LogField>&& dtls
-    ) noexcept;
 protected:
     std::mutex mtx_;
     std::vector<std::shared_ptr<ILogSink>> sinks_;
