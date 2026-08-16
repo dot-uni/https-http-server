@@ -54,7 +54,7 @@ protected:
     bool listenInternal(int max_connections, int bufsize) noexcept;
     virtual void clientIntakeCycle(int bufsize) noexcept;
     ClientConnection acceptConnection() noexcept;
-    void moveImpl(HttpServer&& serv) noexcept;
+    void swap(HttpServer& other) noexcept;
 protected:
     int sockfd_ = kEmptyDescriptor;
     addrinfo* servinfo_ = nullptr;

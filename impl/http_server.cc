@@ -65,28 +65,36 @@ HttpServer::~HttpServer()
     closeConnection(sockfd_);
 }
 
-void HttpServer::moveImpl(HttpServer&& serv) noexcept 
+
+void HttpServer::swap(HttpServer& other) noexcept
 {
-    sockfd_ = std::move(serv.sockfd_);
-    servinfo_ = std::move(serv.servinfo_);
-    hints_ = std::move(serv.hints_);
-    logger_ = std::move(serv.logger_);
-    is_running_ = std::move(serv.is_running_);
+    std::swap(sockfd_, other.sockfd_);
+    std::swap(servinfo_, other.servinfo_);
+    std::swap(hints_, other.hints_);
+    std::swap(logger_, other.logger_);
+    std::swap(is_running_, other.is_running_);
 }
 
-HttpServer::HttpServer(HttpServer&& serv) noexcept 
-{
-    moveImpl(std::move(serv));
-}
 
-HttpServer& HttpServer::operator=(HttpServer&& serv) noexcept 
+HttpServer::HttpServer(HttpServer&& serv) noexcept
+    : sockfd_(std::exchange(serv.sockfd_, kEmptyDescriptor))      
+    , servinfo_(std::exchange(serv.servinfo_, nullptr))
+    , hints_(std::move(serv.hints_))
+    , logger_(std::move(serv.logger_))
+    , is_running_(std::exchange(serv.is_running_, false))
+{}
+
+
+HttpServer& HttpServer::operator=(HttpServer&& serv) noexcept
 {
-    if (&serv == this) return *this;
-    freeAddrInfo(servinfo_);
-    closeConnection(sockfd_);
-    moveImpl(std::move(serv));
+    if (this != &serv)
+    {
+        HttpServer tmp(std::move(serv)); 
+        swap(tmp);                
+    }
     return *this;
 }
+
 
 bool HttpServer::listen(const char* host, const char* port, int max_connections, int bufsize) 
 {
