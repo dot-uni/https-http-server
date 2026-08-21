@@ -17,9 +17,7 @@
 #include "tostring.h"
 #include "log_status.h"
 
-
 namespace {
-
 
 std::string timeToString(std::chrono::system_clock::time_point tp) 
 {
@@ -31,13 +29,11 @@ std::string timeToString(std::chrono::system_clock::time_point tp)
     return oss.str();
 }
 
-
 } // namespace
 
 
 namespace logrr {
 
-    
 using LogField = std::pair<std::string, std::string>;
 
 template <typename T>

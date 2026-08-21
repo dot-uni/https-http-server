@@ -35,18 +35,18 @@ std::vector<std::string> parse(std::string path)
 
 RoutingTree::RNode::RNode(
     std::string id, 
-    std::optional<Handler> h
+    std::optional<Handler>&& h
 ) : id(std::move(id)), h(std::move(h)) {}
 
 
 std::optional<Handler> RoutingTree::get(const Method& mtd, const std::string& path) const noexcept
 {
-    if (mtd == Method::UNKNOWN) return std::nullopt;
+    auto root_it = root_.find(mtd);
+    if (root_it == root_.end()) {
+        return std::nullopt;
+    }
 
-    auto root_it = root_.find(toString(mtd));
-    if (root_it == root_.end()) return std::nullopt;
-
-    const std::vector<std::shared_ptr<RNode>>* childs = &root_it->second;
+    const Childs* chs = &root_it->second;
 
     std::vector<std::string> path_elems = parse(path);
     if (path_elems.empty()) return std::nullopt;
@@ -55,12 +55,12 @@ std::optional<Handler> RoutingTree::get(const Method& mtd, const std::string& pa
 
     for (auto&& elem : path_elems) {
         bool found = false;
-        for (auto&& child : *childs) {
+        for (auto&& child : *chs) {
             if (child->id == elem) {
                 if (elem == target) {
                     return child->h;
                 }
-                childs = &child->childs; 
+                chs = &child->chs; 
                 found = true;
                 break;
             }
@@ -83,21 +83,21 @@ bool RoutingTree::add(const Method& mtd, std::vector<std::string>&& path_elems, 
 {
     if (path_elems.empty() || mtd == Method::UNKNOWN) return false;
 
-    std::vector<std::shared_ptr<RNode>>* childs = &root_[toString(mtd)];
-    const size_t elem_size = path_elems.size();
+    Childs* chs = &root_[mtd];
+    size_t elem_size = path_elems.size();
 
     for (size_t i = 0; i < elem_size; ++i) {
         const std::string& value = path_elems[i];
         const bool is_last = (i + 1 == elem_size);
 
         bool found = false;
-        for (auto&& child : *childs) {
+        for (auto&& child : *chs) {
             if (child->id == value) {
                 if (is_last) {
                     if (child->h != std::nullopt) return false;
                     child->h = std::move(h);
                 }
-                childs = &child->childs;
+                chs = &child->chs;
                 found = true;
                 break;
             }
@@ -108,15 +108,18 @@ bool RoutingTree::add(const Method& mtd, std::vector<std::string>&& path_elems, 
             ? std::make_shared<RNode>(value, std::move(h))
             : std::make_shared<RNode>(value);
 
-        childs->push_back(std::move(new_child));
-        childs = &childs->back()->childs;
+        chs->push_back(std::move(new_child));
+        chs = &chs->back()->chs;
     }
     ++size_;
     return true;
 }
 
 
-size_t RoutingTree::size() const noexcept { return size_; }
+size_t RoutingTree::size() const noexcept 
+{ 
+    return size_;
+}
 
 
 bool RoutingTree::empty() const noexcept

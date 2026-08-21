@@ -16,19 +16,20 @@ std::vector<std::string> parse(std::string path);
 
 class RoutingTree 
 {
+    struct RNode;
+    using Childs = std::vector<std::shared_ptr<RNode>>;
+
     struct RNode 
     {
         std::string id;
-        std::vector<std::shared_ptr<RNode>> childs; 
-        std::optional<Handler> h = std::nullopt;
+        Childs chs; 
+        std::optional<Handler> h;
         RNode(
             std::string id, 
-            std::optional<Handler> h = std::nullopt
+            std::optional<Handler>&& h = std::nullopt
         );
     };
-
-    using Childs = std::unordered_map<std::string, std::vector<std::shared_ptr<RNode>>>;
-    Childs root_;   
+    std::unordered_map<Method, Childs> root_;   
     size_t size_;
 public:
     RoutingTree() = default;
