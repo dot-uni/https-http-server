@@ -94,12 +94,12 @@ std::optional<Request> HttpCodec::parse(const std::string& raw_req)
 
 std::string HttpCodec::serialize(Response& resp) noexcept 
 {
-    std::string targets =  "HTTP/1.1 " + tostr::convertToString(resp.status) + " " + std::string(obsolete_reason(resp.status)) + "\r\n";
+    std::string targets =  "HTTP/1.1 " + frmt::toString(resp.status) + " " + std::string(obsolete_reason(resp.status)) + "\r\n";
     std::string headers = "";
     std::string body = resp.body.dump(4);
 
     headers += "Content-Type: application/json\r\n";
-    headers += "Content-Length: " + tostr::convertToString(body.size()) + "\r\n";
+    headers += "Content-Length: " + frmt::toString(body.size()) + "\r\n";
     for (auto&& [key, value] : resp.headers) {
         headers += key + ": " + value + "\r\n";
     }

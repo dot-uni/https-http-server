@@ -10,11 +10,11 @@ int main(int argc, char** argv) {
     auto logsink = std::make_shared<logrr::ConsoleSink>();
 
     http::Router router(logsink);
-    std::cout << std::boolalpha << router.get("/", [](http::Request&& req){
+    router.get("/", [](http::Request&& req){
         return http::makeResp(http::retCode::Success, {
             {"Message", "The request was received and successfully processed..."}
         });
-    }) << "\n";
+    });
 
     https::HttpsServer server(argv[1], argv[2], router, logsink);
     server.addSink(std::make_shared<logrr::FileSink>());

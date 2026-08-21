@@ -82,7 +82,7 @@ bool HttpConnection::recv() noexcept
             logrr::field("client_id", client_.id),
             logrr::field("client_ip", client_.ip),
             logrr::field("client_port", client_.port),
-            logrr::field("message", tostr::concat(numbytes, " bytes were received"))
+            logrr::field("message", frmt::concat(numbytes, " bytes were received"))
         });
 
         if (numbytes < bufsize_) break;
@@ -94,7 +94,7 @@ bool HttpConnection::recv() noexcept
         logrr::field("client_id", client_.id),
         logrr::field("client_ip", client_.ip),
         logrr::field("client_port", client_.port),
-        logrr::field("message", tostr::concat("A total of ", resbytes, " bytes received from the client"))
+        logrr::field("message", frmt::concat("A total of ", resbytes, " bytes received from the client"))
     });
     return true;
 }

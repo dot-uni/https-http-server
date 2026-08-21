@@ -39,7 +39,7 @@ using LogField = std::pair<std::string, std::string>;
 template <typename T>
 LogField field(const std::string& key, T&& value) 
 {
-    return LogField{std::move(key), tostr::convertToString(std::forward<T>(value))};
+    return LogField{std::move(key), frmt::toString(std::forward<T>(value))};
 }
 
 struct LogRecord 

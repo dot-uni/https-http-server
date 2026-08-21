@@ -25,11 +25,11 @@ constexpr bool is_streamable_v = is_streamable<T>::value;
 } // namespace
 
 
-namespace tostr {
+namespace frmt {
 
 
 template <typename T>
-std::string convertToString(T&& value) {
+std::string toString(T&& value) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     if constexpr(std::is_enum_v<type>) {
         return std::to_string(static_cast<std::underlying_type_t<type>>(value));
@@ -44,11 +44,21 @@ std::string convertToString(T&& value) {
 
 template <typename... Args>
 std::string concat(Args&&... args) {
-    static_assert((::is_streamable_v<Args> && ...), 
-        "concat requires all arguments to support operator<<");
-    std::ostringstream oss;
-    (oss << ... << args);
-    return oss.str();
+    std::string res;
+    auto concat_t = [](auto&& arg) {
+        using type = std::remove_cv_t<std::remove_reference_t<decltype(arg)>>;
+        if constexpr(std::is_enum_v<type>) {
+            return std::to_string(static_cast<std::underlying_type_t<type>>(arg));
+        }
+        else {
+            std::ostringstream oss;
+            oss << std::forward<decltype(arg)>(arg);
+            return oss.str();
+        }
+    };
+    ((res += concat_t(std::forward<Args>(args)) + " "), ...);
+    res.pop_back();
+    return res;
 }
 
 } // namespace tstr

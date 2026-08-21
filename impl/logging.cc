@@ -100,7 +100,7 @@ bool FileSink::log(const LogRecord& record) noexcept
     file_ << inf << '\n';
     if (file_.fail()) {
         std::cerr << __FILE_NAME__ << ":" << __LINE__ << " " << "Error writing to log file: " << std::strerror(errno) << '\n';
-        strerror(tostr::concat("Error writing to log file: ", std::strerror(errno)));
+        strerror(frmt::concat("Error writing to log file: ", std::strerror(errno)));
         file_.clear(); 
         return false;
     }
@@ -115,7 +115,7 @@ bool FileSink::flush() noexcept
 {
     file_.flush();
     if (file_.fail()) {
-        strerror(tostr::concat("Failed to flush file: ", std::strerror(errno)));
+        strerror(frmt::concat("Failed to flush file: ", std::strerror(errno)));
         file_.clear(); 
         return false;
     }
@@ -157,14 +157,14 @@ bool Logger::addSink(std::shared_ptr<ILogSink> sink) noexcept
     const char* sink_name = sink->name();
     for (auto&& existing : sinks_) {
         if (sink_name == existing->name()) {
-            strerror(tostr::concat("The same sink already existing: ", sink_name));
+            strerror(frmt::concat("The same sink already existing: ", sink_name));
             return false;
         }
     }
     try {
         sinks_.push_back(std::move(sink));
     } catch(std::bad_alloc& mess) {
-        strerror(tostr::concat("Failed to add sink: ", sink_name, " - ", mess.what()));
+        strerror(frmt::concat("Failed to add sink: ", sink_name, " - ", mess.what()));
         return false;
     }
     return true;
