@@ -2,7 +2,6 @@ add_library(http_server STATIC
     impl/uuid.cc
     impl/status.cc
     impl/crypto.cc
-    impl/routing_tree.cc
     impl/http_codec.cc
     impl/http_message.cc
     impl/http_connection.cc

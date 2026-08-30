@@ -2,21 +2,7 @@
 
 namespace http {
 
-constexpr std::string toString(Method m) 
-{
-    switch(static_cast<Method>(m)) {
-        case Method::GET:           return "GET";
-        case Method::POST:          return "POST";
-        case Method::PUT:           return "PUT";
-        case Method::DELETE:        return "DELETE";
-        case Method::PATCH:         return "PATCH";
-        default:
-            break;
-    }
-    return "UNKNOWN";
-}
-
-Method toMethod(const std::string& s)
+Method to_method(const std::string& s)
 {   
     if (s.length() > 6) return Method::UNKNOWN;
 

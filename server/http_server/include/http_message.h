@@ -46,15 +46,28 @@ enum class Method : uint8_t {
     UNKNOWN
 };
 
-constexpr std::string toString(Method m);
-Method toMethod(const std::string& s);
+constexpr std::string to_string(Method m)
+{
+    switch(static_cast<Method>(m)) {
+        case Method::GET:           return "GET";
+        case Method::POST:          return "POST";
+        case Method::PUT:           return "PUT";
+        case Method::DELETE:        return "DELETE";
+        case Method::PATCH:         return "PATCH";
+        default:
+            break;
+    }
+    return "UNKNOWN";
+}
+
+Method to_method(const std::string& s);
 
 struct Request 
 {
     std::string id;
-    Method method;
-    std::string path="";
-    std::string version="HTTP/1.1";
+    Method method = Method::UNKNOWN;
+    std::string path = "none";
+    std::string version = "HTTP/1.1";
     std::unordered_map<std::string, std::string, 
                        CaseInsensitiveHash, CaseInsensitiveEqual> headers;
     nlohmann::ordered_json body;

@@ -92,7 +92,7 @@ size_t Hash<Hasher, Key>::operator()(std::string_view msg) const noexcept
 template <typename Hasher, typename Key>
 size_t Hash<Hasher, Key>::operator()(http::Method v) const noexcept
 {
-    std::string v_str = http::toString(v);
+    std::string v_str = http::to_string(v);
     auto tag = h_.hash(v_str);
     if (!tag) {
         return std::hash<std::string_view>{}(v_str);

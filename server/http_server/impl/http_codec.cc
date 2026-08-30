@@ -15,20 +15,17 @@ std::optional<Request> HttpCodec::parse(const std::string& raw_req)
     Request req;
     int end_targets = raw_req.find("\r\n");
     int end_headers = raw_req.find("\r\n\r\n");
-
-    if (end_targets == std::string::npos || end_headers == std::string::npos) {
+    if (end_targets == std::string::npos) {
         LOG_WARN(slogger_, {{"message", "The request is not in the correct format"}});
         return std::nullopt;
     }
 
-    std::string targets = raw_req.substr(0, end_targets);
-    std::string headers = raw_req.substr(end_targets+2,  end_headers);
-    std::string body = raw_req.substr(end_headers+4);
-
     /// parse target
+    std::string targets = raw_req.substr(0, end_targets);
+
     int first_space = targets.find(' ');
     int second_space = targets.find(' ', first_space+1);
-    req.method = toMethod(targets.substr(0, first_space));
+    req.method = to_method(targets.substr(0, first_space));
     if (req.method == Method::UNKNOWN) {
         LOG_WARN(slogger_, {{"message", "Incorrectly specified method <UNKNOWN>"}});
         return std::nullopt;
@@ -37,6 +34,8 @@ std::optional<Request> HttpCodec::parse(const std::string& raw_req)
     req.version = targets.substr(second_space+1);
 
     /// parse header
+    std::string headers = raw_req.substr(end_targets+2,  end_headers);
+
     int beg = 0;
     int end = headers.find("\r\n"), colon;
     if (end == std::string::npos) {
@@ -71,13 +70,16 @@ std::optional<Request> HttpCodec::parse(const std::string& raw_req)
     }
 
     /// parse body
-    try {
-        if (!body.empty()) {
-            req.body = nlohmann::json::parse(body); 
+    if (end_headers != std::string::npos) {
+        std::string body = raw_req.substr(end_headers+4);
+        try {
+            if (!body.empty()) {
+                req.body = nlohmann::json::parse(body); 
+            }
+        } catch(nlohmann::json::parse_error& mess) {
+            LOG_WARN(slogger_, {{"message", mess.what()}});
+            return std::nullopt;
         }
-    } catch(nlohmann::json::parse_error& mess) {
-        LOG_WARN(slogger_, {{"message", "The provided body is not in JSON format"}});
-        return std::nullopt;
     }
 
     req.id = uuid::generate_uuid_v4();
@@ -120,7 +122,7 @@ std::string HttpCodec::process(const std::string& raw_req, const IRouter& router
         resp = router.match(std::move(req_)); 
     }
     LOG_USING_HTTP_STS(resp.status, slogger_, {
-        logrr::field("method", req_.method),
+        logrr::field("method", to_string(req_.method)),
         logrr::field("path", req_.path)
     });
     return HttpCodec::serialize(resp);
