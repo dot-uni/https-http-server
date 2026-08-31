@@ -16,8 +16,8 @@ int main(int argc, char** argv) {
 
     auto logger = std::make_shared<logrr::Logger>();
 
-    logger->add_sink<logrr::ConsoleSink>();
-    logger->add_sink<logrr::FileSink>();
+    logger->add_sink<logrr::ConsoleSink<>>();
+    logger->add_sink<logrr::FileSink<>>();
 
     https::HttpsServer server(argv[1], argv[2], router, logger);
     server.listen();

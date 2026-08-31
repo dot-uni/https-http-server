@@ -25,7 +25,7 @@ namespace logrr {
 /** logrr::SingleLineFormatter 
  */
 
-std::string SingleLineFormatter::format(LogRecord&& r) const noexcept 
+std::string SingleLineFormatter::format(LogRecord&& r) noexcept
 {
     std::string base = "";
     try {
@@ -46,7 +46,7 @@ std::string SingleLineFormatter::format(LogRecord&& r) const noexcept
 /** logrr::JsonFormatter 
  */
 
-std::string JsonFormatter::format(LogRecord&& r) const noexcept 
+std::string JsonFormatter::format(LogRecord&& r) noexcept
 {
     nlohmann::ordered_json j = {
         {"timepoint", std::move(r.timepoint)},
@@ -58,76 +58,6 @@ std::string JsonFormatter::format(LogRecord&& r) const noexcept
         {"details", std::move(r.details)}
     };
     return j.dump();
-}
-
-
-/** logrr::ConsoleSink 
- */
-
-ConsoleSink::ConsoleSink() : 
-formatter_(std::make_shared<SingleLineFormatter>()) {}
-
-ConsoleSink::ConsoleSink(std::shared_ptr<IFormatter>&& formatter) : 
-formatter_(std::move(formatter)) {}
-
-bool ConsoleSink::log(LogRecord& record) noexcept 
-{
-    std::string inf;
-    inf = formatter_->format(std::move(record));
-
-    std::ostream& out = (important_log(record.status)) ? std::cerr : std::cout;
-    out << inf << '\n';
-
-    return static_cast<bool>(out);
-}
-
-
-/** logrr::FileSink 
- */
-
-FileSink::FileSink(std::string_view file_name, std::shared_ptr<IFormatter>&& formatter) : formatter_(std::move(formatter))
-{
-    file_.open(file_name, std::ios::app);
-    if (!file_.is_open()) {
-        throw std::runtime_error(fmt::format("{}:{} Failed to open file '{}': {}", 
-                                    __FILE_NAME__, __LINE__, file_name, strerror(errno)));
-    }
-}
-
-FileSink::FileSink(std::string_view file_name) :
-FileSink(file_name, std::make_shared<JsonFormatter>()) {}
-
-FileSink::FileSink() : 
-FileSink(fmt::format("log_{}.log", detail::time_to_string(std::chrono::system_clock::now())), std::make_shared<JsonFormatter>()) {}
-
-bool FileSink::log(LogRecord& record) noexcept 
-{
-    std::string inf;
-    inf = formatter_->format(std::move(record));
-
-    file_ << inf << '\n';
-    if (file_.fail()) {
-        std::cerr << __FILE_NAME__ << ":" << __LINE__ << " " << "Error writing to log file: " << std::strerror(errno) << '\n';
-        detail::strerror(frmt::concat("Error writing to log file: ", std::strerror(errno)));
-        file_.clear(); 
-        return false;
-    }
-
-    if (important_log(record.status)) {
-        return flush();
-    }
-    return true;
-}
-
-bool FileSink::flush() noexcept 
-{
-    file_.flush();
-    if (file_.fail()) {
-        detail::strerror(frmt::concat("Failed to flush file: ", std::strerror(errno)));
-        file_.clear(); 
-        return false;
-    }
-    return true;
 }
 
 
@@ -175,7 +105,7 @@ void Logger::log(
             .timepoint = detail::time_to_string(std::chrono::system_clock::now()),
             .details = std::move(dtls)
         };
-        std::for_each(sinks_.begin(), sinks_.end(), [&](const auto& sink){
+        std::for_each(sinks_.begin(), sinks_.end(), [&record](const auto& sink){
             sink->log(record);
         });
     }

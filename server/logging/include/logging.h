@@ -136,6 +136,28 @@ template <typename T>
 constexpr bool is_slogger_v = is_slogger<T>::value;
 
 
+
+struct LogRecord;
+
+template <typename, typename=void>
+struct has_format : std::false_type {};
+
+template <typename T>
+struct has_format<
+    T,
+    std::void_t<decltype(std::declval<T>().format(std::declval<LogRecord&&>()))>
+> : std::is_same<
+    decltype(std::declval<T>().format(std::declval<LogRecord&&>())),
+    std::string
+> {};
+
+template <typename T>
+constexpr bool has_format_v = has_format<T>::value;
+
+
+
+
+
 using LogField = std::pair<std::string, std::string>;
 
 template <typename T>
@@ -162,28 +184,15 @@ struct LogRecord
 };
 
 
-struct IFormatter 
+struct SingleLineFormatter final
 {
-    virtual ~IFormatter() = default;
-    virtual std::string format(LogRecord&&) const noexcept = 0;
+    static std::string format(LogRecord&& r) noexcept;
 };
 
 
-class SingleLineFormatter : public IFormatter 
+struct JsonFormatter final
 {
-public:
-    SingleLineFormatter() = default;
-    virtual ~SingleLineFormatter() = default;
-    std::string format(LogRecord&& r) const noexcept override;
-};
-
-
-struct JsonFormatter : public IFormatter 
-{
-public:
-    JsonFormatter() = default;
-    virtual ~JsonFormatter() = default;
-    std::string format(LogRecord&& r) const noexcept override;
+    static std::string format(LogRecord&& r) noexcept;
 };
 
 
@@ -195,34 +204,108 @@ struct ISink
 };
 
 
-class ConsoleSink final : public ISink 
+/** logrr::ConsoleSink 
+ */
+
+template <
+    typename Formatter = SingleLineFormatter, 
+    typename = std::enable_if_t<has_format_v<Formatter>>
+> class ConsoleSink final : public ISink 
 {
 public:
-    ConsoleSink();
-    ConsoleSink(std::shared_ptr<IFormatter>&& formatter);
-    ~ConsoleSink() = default;
+    ConsoleSink() = default;
     bool log(LogRecord& record) noexcept override;
 private:
     std::mutex mtx_;
-    std::shared_ptr<IFormatter> formatter_;
 };
 
 
-class FileSink final : public ISink 
+template <typename Formatter, typename Enable>
+bool ConsoleSink<Formatter, Enable>::log(LogRecord& record) noexcept 
+{
+    std::string inf;
+    inf = Formatter::format(std::move(record));
+
+    std::ostream& out = (important_log(record.status)) ? std::cerr : std::cout;
+    out << inf << '\n';
+
+    return static_cast<bool>(out);
+}
+
+
+/** logrr::FileSink 
+ */
+
+
+template <
+    typename Formatter = JsonFormatter, 
+    typename = std::enable_if_t<has_format_v<Formatter>>
+> class FileSink final : public ISink 
 {
 public:
     FileSink();
     FileSink(std::string_view file_name);
-    FileSink(std::string_view file_name, std::shared_ptr<IFormatter>&& formatter);
     ~FileSink() { file_.close(); }
     bool log(LogRecord& record) noexcept override;
     bool flush() noexcept override;
 private:
     std::mutex mtx_;
     std::ofstream file_;
-    std::shared_ptr<IFormatter> formatter_;
 };
 
+
+template <typename Formatter, typename Enable>
+FileSink<Formatter, Enable>::FileSink() : 
+FileSink(fmt::format("log_{}.log", detail::time_to_string(std::chrono::system_clock::now()))) {}
+
+
+template <typename Formatter, typename Enable>
+FileSink<Formatter, Enable>::FileSink(std::string_view file_name) 
+{
+    file_.open(file_name, std::ios::app);
+    if (!file_.is_open()) {
+        throw std::runtime_error(fmt::format("{}:{} Failed to open file '{}': {}", 
+                                    __FILE_NAME__, __LINE__, file_name, strerror(errno)));
+    }
+}
+
+
+template <typename Formatter, typename Enable>
+bool FileSink<Formatter, Enable>::log(LogRecord& record) noexcept 
+{
+    std::string inf;
+    inf = Formatter::format(std::move(record));
+
+    file_ << inf << '\n';
+    if (file_.fail()) {
+        std::cerr << __FILE_NAME__ << ":" << __LINE__ << " " << "Error writing to log file: " << std::strerror(errno) << '\n';
+        detail::strerror(frmt::concat("Error writing to log file: ", std::strerror(errno)));
+        file_.clear(); 
+        return false;
+    }
+
+    if (important_log(record.status)) {
+        return flush();
+    }
+    return true;
+}
+
+
+template <typename Formatter, typename Enable>
+bool FileSink<Formatter, Enable>::flush() noexcept 
+{
+    file_.flush();
+    if (file_.fail()) {
+        detail::strerror(frmt::concat("Failed to flush file: ", std::strerror(errno)));
+        file_.clear(); 
+        return false;
+    }
+    return true;
+}
+
+
+/** logrr::Logger 
+ */
 
 class Logger 
 {
@@ -243,7 +326,7 @@ public:
 
     void flush() noexcept;
 
-    template <typename Sink> void add_sink();
+    template <typename Sink, typename... Args> void add_sink(Args&&... args);
     template <typename Sink> bool contain_sink() const noexcept;
 
     constexpr void set_log_level(logrr::log_status level) noexcept { level_ = level; }
@@ -261,7 +344,7 @@ protected:
 };
 
 
-template <typename Sink> void Logger::add_sink() 
+template <typename Sink, typename... Args> void Logger::add_sink(Args&&... args) 
 {      
     static_assert(
         std::is_base_of_v<logrr::ISink, std::remove_cvref_t<Sink>>,
@@ -270,7 +353,7 @@ template <typename Sink> void Logger::add_sink()
     if (contain_sink<Sink>()) {
         throw std::logic_error("Such a 'sink' already exists in std::vector<std::shared_ptr<ISink>> sinks_");
     }
-    auto new_sink = std::make_shared<std::remove_cvref_t<Sink>>();
+    auto new_sink = std::make_shared<std::remove_cvref_t<Sink>>(args...);
     sinks_.push_back(new_sink);
 }
 
