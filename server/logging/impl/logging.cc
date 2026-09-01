@@ -25,7 +25,7 @@ namespace logrr {
 /** logrr::SingleLineFormatter 
  */
 
-std::string SingleLineFormatter::format(LogRecord&& r) noexcept
+std::string SingleLineFormatter::format(const LogRecord& r) noexcept
 {
     std::string base = "";
     try {
@@ -46,7 +46,7 @@ std::string SingleLineFormatter::format(LogRecord&& r) noexcept
 /** logrr::JsonFormatter 
  */
 
-std::string JsonFormatter::format(LogRecord&& r) noexcept
+std::string JsonFormatter::format(const LogRecord& r) noexcept
 {
     nlohmann::ordered_json j = {
         {"timepoint", std::move(r.timepoint)},
