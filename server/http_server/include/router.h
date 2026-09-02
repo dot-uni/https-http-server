@@ -7,7 +7,6 @@
 #include <functional>
 
 #include "routing_tree.h"
-#include "status_logging.h"
 #include "ret_status.h" 
 #include "crypto.h"
 

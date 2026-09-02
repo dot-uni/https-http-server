@@ -19,13 +19,7 @@ public:
     HttpsConnection(
         SSL* ssl,
         const http::ClientConnection& client, 
-        std::shared_ptr<logrr::Logger>& logger, 
-        int bufsize=http::kReceptionBufSize
-    );
-    HttpsConnection(
-        SSL* ssl,
-        const http::ClientConnection& client, 
-        std::shared_ptr<logrr::StatusLogger>& slogger, 
+        std::shared_ptr<logrr::Logger> logger, 
         int bufsize=http::kReceptionBufSize
     );
     virtual ~HttpsConnection();

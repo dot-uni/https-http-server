@@ -9,8 +9,7 @@
 #include <optional>
 
 #include "uuid.h"
-#include "status_logging.h"
-#include "status.h"
+#include "logging.h"
 #include "http_message.h"
 #include "tostring.h"
 #include "router.h"
@@ -22,8 +21,7 @@ class HttpCodec
 {
 public:
     HttpCodec() = default;
-    HttpCodec(std::shared_ptr<logrr::Logger>&);
-    HttpCodec(std::shared_ptr<logrr::StatusLogger>&);
+    HttpCodec(std::shared_ptr<logrr::Logger>);
     virtual ~HttpCodec() = default;
 
     std::string process(const std::string& raw_req, const IRouter& router);
@@ -33,7 +31,7 @@ protected:
     bool parse_w(const std::string& raw_req);
 protected:
     Request req_;
-    std::shared_ptr<logrr::StatusLogger> slogger_ = nullptr;
+    std::shared_ptr<logrr::Logger> logger_ = nullptr;
 };
 
 } // namespace http

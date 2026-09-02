@@ -7,7 +7,7 @@ HttpsServer::HttpsServer(
     const std::string& key, 
     http::IRouter& router,
     std::shared_ptr<logrr::Logger> logger
-) : http::HttpServer(router, logger)
+) : http::HttpServer(router, std::move(logger))
 {
     SSL_library_init();
     SSL_load_error_strings();
@@ -19,7 +19,7 @@ HttpsServer::HttpsServer(
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        LOG_ERROR(this->logger_, {
+        logrr::log_error(this->logger_.get(), {
             logrr::field("OpenSSL_error_code", ssl_err),
             logrr::field("OpenSSL_error_string", buf),
             logrr::field("message", "Failed to create SSL_CTX object")
@@ -35,7 +35,7 @@ HttpsServer::HttpsServer(
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        LOG_ERROR(this->logger_, {
+        logrr::log_error(this->logger_.get(), {
             logrr::field("OpenSSL_error_code", ssl_err),
             logrr::field("OpenSSL_error_string", buf),
             logrr::field("message", "Failed to load certificate file")
@@ -52,7 +52,7 @@ HttpsServer::HttpsServer(
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        LOG_ERROR(this->logger_, {
+        logrr::log_error(this->logger_.get(), {
             logrr::field("OpenSSL_error_code", ssl_err),
             logrr::field("OpenSSL_error_string", buf),
             logrr::field("message", "Failed to load private key file")
@@ -62,7 +62,7 @@ HttpsServer::HttpsServer(
 
     if (!SSL_CTX_check_private_key(ctx_)) {
         std::string msg = "Private key does not match certificate";
-        LOG_ERROR(this->logger_, {
+        logrr::log_error(this->logger_.get(), {
             logrr::field("message", msg)
         });
         throw SSLException(msg);
@@ -86,7 +86,7 @@ void HttpsServer::clientIntakeCycle(int bufsize) noexcept
         
         SSL* ssl = sslHandshake(client);
         if (!ssl) {
-            LOG_WARN(this->logger_, {
+            logrr::log_warning(this->logger_.get(), {
                 logrr::field("message", "A secure connection with the client was not established")
             });
             continue;
@@ -106,7 +106,7 @@ SSL* HttpsServer::sslHandshake(const http::ClientConnection& client) noexcept
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        LOG_ERROR(this->logger_, {
+        logrr::log_error(this->logger_.get(), {
             logrr::field("OpenSSL_error_code", ssl_err),
             logrr::field("OpenSSL_error_string", buf),
             logrr::field("message", "Failed to create SSL object")
@@ -121,7 +121,7 @@ SSL* HttpsServer::sslHandshake(const http::ClientConnection& client) noexcept
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        LOG_WARN(this->logger_, {
+        logrr::log_warning(this->logger_.get(), {
             logrr::field("OpenSSL_error_code", ssl_err),
             logrr::field("OpenSSL_error_string", buf),
             logrr::field("message", "Failed to perform SSL handshake")
@@ -130,7 +130,7 @@ SSL* HttpsServer::sslHandshake(const http::ClientConnection& client) noexcept
         return nullptr;
     }
     else {
-        LOG_INFO(this->logger_, {
+        logrr::log_info(this->logger_.get(), {
             logrr::field("message", "TLS handshake successful")
         });
     }

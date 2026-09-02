@@ -3,6 +3,7 @@
 
 
 #include <algorithm>
+#include <source_location>
 #include <concepts>
 #include <utility>
 #include <string>
@@ -18,90 +19,8 @@
 
 #include "tostring.h"
 #include "log_status.h"
-
-
-#define LOG_INFO(logger, ...)                                                  \
-    do {                                                                       \
-        static_assert(                                                         \
-            logrr::is_logger_v<std::remove_cvref_t<decltype(*logger)>> ||      \
-            logrr::is_slogger_v<std::remove_cvref_t<decltype(*logger)>>,       \
-            "LOG_INFO: 'logger' must point to logrr::Logger or logrr::StatusLogger" \
-        );                                                                     \
-        auto&& logrr_logger_ = (logger);                                       \
-        if (logrr_logger_ != nullptr) {                                        \
-            logrr_logger_->info(__FILE_NAME__, __LINE__, __func__ __VA_OPT__(,) __VA_ARGS__); \
-        }                                                                      \
-    } while (false)
-
-
-#define LOG_ERROR(logger, ...)                                                \
-    do {                                                                       \
-        static_assert(                                                         \
-            logrr::is_logger_v<std::remove_cvref_t<decltype(*logger)>> ||      \
-            logrr::is_slogger_v<std::remove_cvref_t<decltype(*logger)>>,       \
-            "LOG_ERROR: 'logger' must point to logrr::Logger or logrr::StatusLogger" \
-        );                                                                     \
-        auto&& logrr_logger_ = (logger);                                      \
-        if (logrr_logger_ != nullptr) {                                       \
-            logrr_logger_->error(__FILE_NAME__, __LINE__, __func__ __VA_OPT__(,) __VA_ARGS__); \
-        }                                                                      \
-    } while (false)
-
-
-#define LOG_WARN(logger, ...)                                                \
-    do {                                                                       \
-        static_assert(                                                         \
-            logrr::is_logger_v<std::remove_cvref_t<decltype(*logger)>> ||      \
-            logrr::is_slogger_v<std::remove_cvref_t<decltype(*logger)>>,       \
-            "LOG_WARN: 'logger' must point to logrr::Logger or logrr::StatusLogger" \
-        );                                                                     \
-        auto&& logrr_logger_ = (logger);                                      \
-        if (logrr_logger_ != nullptr) {                                       \
-            logrr_logger_->warning(__FILE_NAME__, __LINE__, __func__ __VA_OPT__(,) __VA_ARGS__); \
-        }                                                                      \
-    } while (false)
-
-
-#define LOG_CRIT(logger, ...)                                                \
-    do {                                                                       \
-        static_assert(                                                         \
-            logrr::is_logger_v<std::remove_cvref_t<decltype(*logger)>> ||      \
-            logrr::is_slogger_v<std::remove_cvref_t<decltype(*logger)>>,       \
-            "LOG_CRIT: 'logger' must point to logrr::Logger or logrr::StatusLogger" \
-        );                                                                     \
-        auto&& logrr_logger_ = (logger);                                      \
-        if (logrr_logger_ != nullptr) {                                       \
-            logrr_logger_->critical(__FILE_NAME__, __LINE__, __func__ __VA_OPT__(,) __VA_ARGS__); \
-        }                                                                      \
-    } while (false)
-
-
-#define LOG_DEBUG(logger, ...)                                                \
-    do {                                                                       \
-        static_assert(                                                         \
-            logrr::is_logger_v<std::remove_cvref_t<decltype(*logger)>> ||      \
-            logrr::is_slogger_v<std::remove_cvref_t<decltype(*logger)>>,       \
-            "LOG_DEBUG: 'logger' must point to logrr::Logger or logrr::StatusLogger" \
-        );                                                                     \
-        auto&& logrr_logger_ = (logger);                                      \
-        if (logrr_logger_ != nullptr) {                                       \
-            logrr_logger_->debug(__FILE_NAME__, __LINE__, __func__ __VA_OPT__(,) __VA_ARGS__); \
-        }                                                                      \
-    } while (false)
-
-
-#define LOG_TRACE(logger, ...)                                                \
-    do {                                                                       \
-        static_assert(                                                         \
-            logrr::is_logger_v<std::remove_cvref_t<decltype(*logger)>> ||      \
-            logrr::is_slogger_v<std::remove_cvref_t<decltype(*logger)>>,       \
-            "LOG_TRACE: 'logger' must point to logrr::Logger or logrr::StatusLogger" \
-        );                                                                     \
-        auto&& logrr_logger_ = (logger);                                      \
-        if (logrr_logger_ != nullptr) {                                       \
-            logrr_logger_->trace(__FILE_NAME__, __LINE__, __func__ __VA_OPT__(,) __VA_ARGS__); \
-        }                                                                      \
-    } while (false)
+#include "status.h"
+#include "ret_status.h"
 
 
 namespace detail {
@@ -114,47 +33,7 @@ void strerror(const std::string& msg);
 
 namespace logrr {
 
-class StatusLogger;
-class Logger;
-
-template <typename>
-struct is_logger : std::false_type {};
-
-template <>
-struct is_logger<Logger> : std::true_type {};
-
-template <typename T>
-constexpr bool is_logger_v = is_logger<T>::value;
-
-
-template <typename>
-struct is_slogger : std::false_type {};
-
-template <>
-struct is_slogger<StatusLogger> : std::true_type {};
-
-template <typename T>
-constexpr bool is_slogger_v = is_slogger<T>::value;
-
-
-
 struct LogRecord;
-
-template <typename, typename=void>
-struct has_format : std::false_type {};
-
-template <typename T>
-struct has_format<
-    T,
-    std::void_t<decltype(std::declval<T>().format(std::declval<LogRecord&&>()))>
-> : std::is_same<
-    decltype(std::declval<T>().format(std::declval<LogRecord&&>())),
-    std::string
-> {};
-
-template <typename T>
-constexpr bool has_format_v = has_format<T>::value;
-
 
 template <typename Formatter>
 concept HasFormat = requires(LogRecord l) {
@@ -180,9 +59,7 @@ constexpr LogField field(std::string_view key, T&& value)
 struct LogRecord 
 {
     logrr::log_status status;
-    std::string_view func;      // __func__
-    std::string_view file;      // __FILE_NAME__
-    int line;
+    std::source_location loc;
     std::string timepoint;
     std::vector<LogField> details = {};
 };
@@ -328,34 +205,50 @@ public:
     constexpr Logger& operator=(const Logger&) noexcept;
     constexpr Logger& operator=(Logger&&) noexcept;
 
-    void info(std::string_view file, int line, std::string_view func, std::vector<LogField>&& dtls={}) noexcept;
-    void error(std::string_view file, int line, std::string_view func, std::vector<LogField>&& dtls={}) noexcept;
-    void warning(std::string_view file, int line, std::string_view func, std::vector<LogField>&& dtls={}) noexcept;
-    void critical(std::string_view file, int line, std::string_view func, std::vector<LogField>&& dtls={}) noexcept;
-    void debug(std::string_view file, int line, std::string_view func, std::vector<LogField>&& dtls={}) noexcept;
-    void trace(std::string_view file, int line, std::string_view func, std::vector<LogField>&& dtls={}) noexcept;
+    void log(
+        logrr::log_status status,
+        std::vector<LogField>&& dtls={},
+        const std::source_location loc = std::source_location::current()
+    ) const noexcept;
+
+    void log(
+        http::retCode code,
+        std::vector<LogField>&& dtls={},
+        const std::source_location loc = std::source_location::current()
+    ) const noexcept;
+
+    void log(
+        http::status status,
+        std::vector<LogField>&& dtls={},
+        const std::source_location loc = std::source_location::current()
+    ) const noexcept;
+
+    void info(std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) const noexcept;
+    void error(std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) const noexcept;
+    void warning(std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) const noexcept;
+    void critical(std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) const noexcept;
+    void debug(std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) const noexcept;
+    void trace(std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) const noexcept;
 
     void flush() noexcept;
 
-    template <typename Sink, typename... Args> void add_sink(Args&&... args) requires IsSink<Sink>;
-    template <typename Sink> bool contain_sink() const noexcept requires IsSink<Sink>;
+    template <typename Sink, typename... Args> 
+    requires IsSink<Sink> void add_sink(Args&&... args);
 
-    constexpr void set_log_level(logrr::log_status level) noexcept { level_ = level; }
-protected:
-    void log(
-        log_status status,
-        std::string_view file, 
-        int line,
-        std::string_view func,
-        std::vector<LogField>&& dtls
-    ) noexcept;
+    template <typename Sink> 
+    requires IsSink<Sink> bool contain_sink() const noexcept;
+
+    constexpr void set_level(logrr::log_status level) noexcept { level_ = level; }
+    constexpr logrr::log_status level() const noexcept { return level_; }
 protected:
     logrr::log_status level_;
     std::vector<std::shared_ptr<ISink>> sinks_;
 };
 
 
-template <typename Sink, typename... Args> void Logger::add_sink(Args&&... args) requires IsSink<Sink>
+template <typename Sink, typename... Args> 
+requires IsSink<Sink> 
+void Logger::add_sink(Args&&... args) 
 {      
     if (contain_sink<Sink>()) {
         throw std::logic_error("Such a 'sink' already exists in std::vector<std::shared_ptr<ISink>> sinks_");
@@ -365,18 +258,26 @@ template <typename Sink, typename... Args> void Logger::add_sink(Args&&... args)
 }
 
 
-template <typename Sink> bool Logger::contain_sink() const noexcept requires IsSink<Sink>
+template <typename Sink> 
+requires IsSink<Sink>
+bool Logger::contain_sink() const noexcept 
 {
     using target_type = std::remove_cvref_t<Sink>;
-    static_assert(
-        std::is_base_of_v<logrr::ISink, target_type>,
-        "The passed type 'Sink' must be a subclass of 'ISink'"
-    );
-
     return std::any_of(sinks_.begin(), sinks_.end(), [](const auto& sink) {
         return dynamic_cast<const target_type*>(sink.get()) != nullptr;
     });
 }
+
+
+void log_info(const Logger* const l, std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) noexcept;
+void log_error(const Logger* const l, std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) noexcept;
+void log_warning(const Logger* const l, std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) noexcept;
+void log_critical(const Logger* const l, std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) noexcept;
+void log_debug(const Logger* const l, std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) noexcept;
+void log_trace(const Logger* const l, std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) noexcept;
+
+void log_using_retcode(http::retCode code, const Logger* const l, std::vector<LogField>&& dtls={}, std::source_location loc = std::source_location::current()) noexcept;
+void log_using_status(http::status status, const Logger* const l, std::vector<LogField>&& dtls={}, std::source_location loc = std::source_location::current()) noexcept;
 
 
 } // namespace logrr

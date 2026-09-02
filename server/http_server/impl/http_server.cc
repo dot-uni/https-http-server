@@ -31,7 +31,7 @@ void HttpServer::swap(HttpServer& other) noexcept
 
 bool HttpServer::listen(const char* host, const char* port, int max_connections, int bufsize) 
 {
-    LOG_INFO(logger_, {
+    logrr::log_info(logger_.get(), {
         logrr::field("host", host)
     });
     return buildSocket(host, port) && listenInternal(max_connections, bufsize);
@@ -45,7 +45,7 @@ bool HttpServer::buildSocket(const char* host, const char* port) noexcept
 
     success = getaddrinfo(host, port, &hints_, &servinfo);
     if (success != 0) {
-        LOG_ERROR(logger_, {
+        logrr::log_error(logger_.get(), {
             logrr::field("gai_strerror", gai_strerror(success)),
             logrr::field("message", "Error from ::getaddrinfo()")
         });
@@ -56,7 +56,7 @@ bool HttpServer::buildSocket(const char* host, const char* port) noexcept
         next = p->ai_next;
         sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
         if (sockfd == kInvalidSocket) {
-            LOG_ERROR(logger_, {
+            logrr::log_error(logger_.get(), {
                 logrr::field("errno", errno),
                 logrr::field("strerror", strerror(errno)),
                 logrr::field("message", "Error from ::socket()")
@@ -68,7 +68,7 @@ bool HttpServer::buildSocket(const char* host, const char* port) noexcept
 
         success = setSockOptions(sockfd, SO_REUSEADDR, SO_REUSEPORT);
         if (success == -1) {
-            LOG_ERROR(logger_, {
+            logrr::log_error(logger_.get(), {
                 logrr::field("errno", errno),
                 logrr::field("strerror", strerror(errno)),
                 logrr::field("message", "Error from http::HttpServer::setSockOptions()")
@@ -80,7 +80,7 @@ bool HttpServer::buildSocket(const char* host, const char* port) noexcept
 
         success = bind(sockfd, p->ai_addr, p->ai_addrlen);
         if (success == -1) {
-            LOG_ERROR(logger_, {
+            logrr::log_error(logger_.get(), {
                 logrr::field("errno", errno),
                 logrr::field("strerror", strerror(errno)),
                 logrr::field("message", "Error from ::bind()")
@@ -94,7 +94,7 @@ bool HttpServer::buildSocket(const char* host, const char* port) noexcept
     }
 
     if (!p) {
-        LOG_ERROR(logger_, {
+        logrr::log_error(logger_.get(), {
             logrr::field("message", "HttpServer failed to bind")
         });
         return false;
@@ -138,7 +138,7 @@ template <typename Opt> bool HttpServer::applyOption(int sockfd, Opt&& arg, int 
     int success;
     success = setsockopt(sockfd, SOL_SOCKET, arg, &opt, sizeof(opt));
     if (success == -1) {
-        LOG_ERROR(logger_, {
+        logrr::log_error(logger_.get(), {
             logrr::field("errno", errno),
             logrr::field("strerror", strerror(errno)),
             logrr::field("message", "Error from ::setsockopt()")
@@ -153,14 +153,14 @@ bool HttpServer::listenInternal(int max_connections, int bufsize) noexcept
 {
     int success;
     if (max_connections <= 0) {
-        LOG_ERROR(logger_, {
+        logrr::log_error(logger_.get(), {
             logrr::field("message", "The number of connections must be greater than 0")
         });
         return false;
     }
 
     if (bufsize <= 0) {
-        LOG_ERROR(logger_, {
+        logrr::log_error(logger_.get(), {
             logrr::field("message", "The buffer size must be strictly greater than 0")
         });
         return false;
@@ -168,7 +168,7 @@ bool HttpServer::listenInternal(int max_connections, int bufsize) noexcept
 
     success = ::listen(sockfd_, max_connections);
     if (success == -1) {
-        LOG_ERROR(logger_, {
+        logrr::log_error(logger_.get(), {
             logrr::field("errno", errno),
             logrr::field("strerror", strerror(errno)),
             logrr::field("message", "Error from ::listen()")
@@ -176,7 +176,7 @@ bool HttpServer::listenInternal(int max_connections, int bufsize) noexcept
         return false;
     }
 
-    LOG_INFO(logger_, {
+    logrr::log_info(logger_.get(), {
         logrr::field("message", "Server waiting for connections...")
     });
     clientIntakeCycle(bufsize);
@@ -209,7 +209,7 @@ ClientConnection HttpServer::acceptConnection() noexcept
     cli_sock = accept(sockfd_, (sockaddr*)&cli_addr, &cli_size);
 
     if (cli_sock == kInvalidSocket) {
-        LOG_ERROR(logger_, {
+        logrr::log_error(logger_.get(), {
             logrr::field("errno", errno),
             logrr::field("strerror", strerror(errno)),
             logrr::field("message", "Error from ::accept()")
@@ -221,7 +221,7 @@ ClientConnection HttpServer::acceptConnection() noexcept
     cli_ip = getIpAddr((sockaddr*)&cli_addr);
     cli_port = ntohs(getSinPort((sockaddr*)&cli_addr));
 
-    LOG_INFO(logger_, {
+    logrr::log_info(logger_.get(), {
         logrr::field("client_id", cli_id),
         logrr::field("client_ip", cli_ip),
         logrr::field("client_port", cli_port),

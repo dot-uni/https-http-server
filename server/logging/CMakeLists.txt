@@ -1,7 +1,6 @@
 add_library(logging STATIC
     impl/log_status.cc
     impl/logging.cc
-    impl/status_logging.cc
 )
 
 target_include_directories(logging PUBLIC

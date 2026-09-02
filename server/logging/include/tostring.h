@@ -10,25 +10,7 @@
 #include <fmt/chrono.h>
 
 
-namespace {
-    
-template <typename, typename=void>
-struct is_streamable : std::false_type {};
-
-template <typename T> 
-struct is_streamable<
-    T,
-    std::void_t<decltype(std::declval<std::ostringstream&>() << std::declval<T>())>
-> : std::true_type {};
-
-template <typename T>
-constexpr bool is_streamable_v = is_streamable<T>::value;
-
-} // namespace
-
-
 namespace frmt {
-
 
 template <typename T>
 constexpr std::string to_string(T&& value) {
