@@ -5,13 +5,23 @@ namespace detail {
 
 std::string time_to_string(std::chrono::system_clock::time_point&& tp) 
 {
-    std::time_t t = std::chrono::system_clock::to_time_t(tp);
-    std::tm tm = *std::localtime(&t);
-    return fmt::format("{}", tm);
+    const auto sec = std::chrono::floor<std::chrono::seconds>(tp);
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(tp - sec).count();
+
+    const std::time_t t = std::chrono::system_clock::to_time_t(sec);
+    std::tm tm{};
+
+    #ifdef _WIN32
+        localtime_s(&tm, &t);
+    #else
+        localtime_r(&t, &tm);
+    #endif
+
+    return fmt::format("{:%Y-%m-%d %H:%M:%S}.{:03}", tm, ms);
 }
 
 
-void strerror(const std::string& msg) 
+void strerror(std::string_view msg) 
 {
     std::cerr << __FILE_NAME__ << ":" << __LINE__ << " " << __func__ << R"( ")" << msg << R"(")" << '\n';
 } 
@@ -29,7 +39,7 @@ std::string SingleLineFormatter::format(const LogRecord& r) noexcept
 {
     std::string base = "";
     try {
-        base = fmt::format("{} [{}] {}:({}:{}) `{}`", 
+        base = fmt::format("[{}] [{}] {}:({}:{}) `{}`", 
             r.timepoint, colored_reason(r.status), r.loc.file_name(), r.loc.line(), r.loc.column(), r.loc.function_name());
         for (auto&& detail : r.details) {
             base += fmt::format(R"( {}: "{}")", detail.first, detail.second);

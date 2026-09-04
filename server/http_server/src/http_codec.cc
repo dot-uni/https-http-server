@@ -5,7 +5,7 @@ namespace http {
 HttpCodec::HttpCodec(std::shared_ptr<logrr::Logger> logger) 
     : logger_(std::move(logger)) {}
 
-std::optional<Request> HttpCodec::parse(const std::string& raw_req) 
+std::optional<Request> HttpCodec::parse(std::string_view raw_req) 
 {
     Request req;
     int end_targets = raw_req.find("\r\n");
@@ -18,7 +18,7 @@ std::optional<Request> HttpCodec::parse(const std::string& raw_req)
     }
 
     /// parse target
-    std::string targets = raw_req.substr(0, end_targets);
+    std::string_view targets = raw_req.substr(0, end_targets);
 
     int first_space = targets.find(' ');
     int second_space = targets.find(' ', first_space+1);
@@ -33,7 +33,7 @@ std::optional<Request> HttpCodec::parse(const std::string& raw_req)
     req.version = targets.substr(second_space+1);
 
     /// parse header
-    std::string headers = raw_req.substr(end_targets+2,  end_headers);
+    std::string_view headers = raw_req.substr(end_targets+2,  end_headers);
 
     int beg = 0;
     int end = headers.find("\r\n"), colon;
@@ -53,8 +53,8 @@ std::optional<Request> HttpCodec::parse(const std::string& raw_req)
             continue;
         }
 
-        std::string key = headers.substr(beg, colon - beg);
-        std::string value = headers.substr(colon + 1, end - colon - 1);
+        std::string key(headers.substr(beg, colon - beg));
+        std::string value(headers.substr(colon + 1, end - colon - 1));
 
         size_t val_start = value.find_first_not_of(" \t");
         if (val_start != std::string::npos) value = value.substr(val_start);
@@ -74,7 +74,7 @@ std::optional<Request> HttpCodec::parse(const std::string& raw_req)
 
     /// parse body
     if (end_headers != std::string::npos) {
-        std::string body = raw_req.substr(end_headers+4);
+        std::string_view body = raw_req.substr(end_headers+4);
         try {
             if (!body.empty()) {
                 req.body = nlohmann::json::parse(body); 
@@ -111,7 +111,7 @@ std::string HttpCodec::serialize(Response& resp) noexcept
 }
 
 
-bool HttpCodec::parse_w(const std::string& raw_req) 
+bool HttpCodec::parse_w(std::string_view raw_req) 
 {
     auto req = HttpCodec::parse(raw_req);
     if (!req) return false;
@@ -120,7 +120,7 @@ bool HttpCodec::parse_w(const std::string& raw_req)
 }
 
 
-std::string HttpCodec::process(const std::string& raw_req, const IRouter& router) {
+std::string HttpCodec::process(std::string_view raw_req, const IRouter& router) {
     Response resp;
     if (!parse_w(raw_req)) {
         resp = makeResp(retCode::InvalidJsonOrParams);

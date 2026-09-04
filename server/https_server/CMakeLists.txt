@@ -1,6 +1,6 @@
 add_library(https_server STATIC
-    impl/https_connection.cc
-    impl/https_server.cc
+    src/https_connection.cc
+    src/https_server.cc
 )
 
 target_include_directories(https_server PUBLIC

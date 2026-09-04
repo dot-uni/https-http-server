@@ -24,11 +24,11 @@ public:
     HttpCodec(std::shared_ptr<logrr::Logger>);
     virtual ~HttpCodec() = default;
 
-    std::string process(const std::string& raw_req, const IRouter& router);
-    std::optional<Request> parse(const std::string& raw_req);
+    std::string process(std::string_view raw_req, const IRouter& router);
+    std::optional<Request> parse(std::string_view raw_req);
     static std::string serialize(Response& resp) noexcept;
 protected:
-    bool parse_w(const std::string& raw_req);
+    bool parse_w(std::string_view raw_req);
 protected:
     Request req_;
     std::shared_ptr<logrr::Logger> logger_ = nullptr;

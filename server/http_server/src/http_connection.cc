@@ -103,14 +103,21 @@ std::string HttpConnection::execution(const IRouter& router) noexcept {
 
 bool HttpConnection::send(const std::string& resp) noexcept 
 {
-    int numbytes = 0;
-    int all_bytes = resp.size();
-    std::string r = resp;
-    while(true) {
-        numbytes = ::send(client_.sockfd, r.c_str(), all_bytes, 0);
-        if (numbytes >= all_bytes) break;
-        all_bytes -= numbytes;
-        r = r.substr(numbytes);
+    size_t total_send = 0;
+    const size_t total_size = resp.size();
+    
+    while (total_send < total_size) {
+        ssize_t numbytes = ::send(client_.sockfd, resp.c_str() + total_send, total_size - total_send, 0);
+
+        if (numbytes < 0) {
+            if (errno == EINTR) continue; 
+            if (errno == EAGAIN || errno == EWOULDBLOCK) continue;
+            return false;
+        }
+        if (numbytes == 0) {
+            return false;
+        }
+        total_send += static_cast<size_t>(numbytes);
     }
     return true;
 }

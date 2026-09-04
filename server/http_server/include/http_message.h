@@ -46,7 +46,7 @@ enum class Method : uint8_t {
     UNKNOWN
 };
 
-constexpr std::string to_string(Method m)
+constexpr std::string_view to_string(Method m)
 {
     switch(static_cast<Method>(m)) {
         case Method::GET:           return "GET";
@@ -60,7 +60,7 @@ constexpr std::string to_string(Method m)
     return "UNKNOWN";
 }
 
-Method to_method(const std::string& s);
+Method to_method(std::string_view s);
 
 struct Request 
 {

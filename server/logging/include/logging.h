@@ -9,11 +9,13 @@
 #include <string>
 #include <string_view>
 #include <chrono>
+#include <ctime>
 #include <sstream>
 #include <iostream>
 #include <fstream>
 #include <fmt/format.h>
 #include <fmt/chrono.h>
+#include <fmt/ostream.h>
 #include <iomanip>
 #include <nlohmann/json.hpp>
 
@@ -26,7 +28,7 @@
 namespace detail {
 
 std::string time_to_string(std::chrono::system_clock::time_point&& tp);
-void strerror(const std::string& msg);
+void strerror(std::string_view msg);
 
 } // namespace detail
 
@@ -61,7 +63,7 @@ struct LogRecord
     logrr::log_status status;
     std::source_location loc;
     std::string timepoint;
-    std::vector<LogField> details = {};
+    std::vector<LogField> details;
 };
 
 
@@ -107,10 +109,8 @@ bool ConsoleSink<Formatter>::log(const LogRecord& record) noexcept
     std::string inf;
     inf = Formatter::format(record);
 
-    std::ostream& out = (important_log(record.status)) ? std::cerr : std::cout;
-    out << inf << '\n';
-
-    return static_cast<bool>(out);
+    fmt::print("{}\n", inf);
+    return true;
 }
 
 

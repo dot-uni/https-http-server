@@ -112,11 +112,11 @@ bool HttpsConnection::recv() noexcept
 bool HttpsConnection::send(const std::string& resp) noexcept 
 {
     size_t total_sent = 0;
-    size_t all_bytes = resp.size();
+    size_t total_size = resp.size();
 
-    while (total_sent < all_bytes) {
-        int chunk = static_cast<int>(all_bytes - total_sent);
-        int numbytes = SSL_write(ssl_, resp.data() + total_sent, chunk);
+    while (total_sent < total_size) {
+        int chunk = static_cast<int>(total_size - total_sent);
+        int numbytes = SSL_write(ssl_, resp.c_str() + total_sent, chunk);
 
         if (numbytes > 0) {
             total_sent += static_cast<size_t>(numbytes);

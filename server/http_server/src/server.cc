@@ -3,7 +3,7 @@
 
 int main(int argc, char** argv) {
     if (argc < 3) {
-        std::cerr << "Certificate and private key not specified.\nExample:  ./server cert.pem key.pem\n";
+        std::cerr << "Certificate and private key not specified.\nExample:  " << argv[0] << " cert.pem key.pem\n";
         return 1;
     }
 

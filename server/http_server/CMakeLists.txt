@@ -1,15 +1,15 @@
 add_library(http_server STATIC
-    impl/uuid.cc
-    impl/status.cc
-    impl/crypto.cc
-    impl/http_codec.cc
-    impl/http_message.cc
-    impl/http_connection.cc
-    impl/http_server.cc
+    src/uuid.cc
+    src/status.cc
+    src/crypto.cc
+    src/http_codec.cc
+    src/http_message.cc
+    src/http_connection.cc
+    src/http_server.cc
 )
 
 target_include_directories(http_server PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    include
 )
 
 target_link_libraries(http_server PUBLIC

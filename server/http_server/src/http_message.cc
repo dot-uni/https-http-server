@@ -2,11 +2,11 @@
 
 namespace http {
 
-Method to_method(const std::string& s)
+Method to_method(std::string_view s)
 {   
     if (s.length() > 6) return Method::UNKNOWN;
 
-    std::string lower = s;
+    std::string lower(s);
     std::transform(lower.begin(), lower.end(), lower.begin(), 
                     [](unsigned char c) { return std::tolower(c); });
 
