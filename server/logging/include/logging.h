@@ -94,21 +94,12 @@ constexpr LogField field(std::string_view key, T&& value)
 struct LogInfo
 {
     log_level status;
-    std::string_view info;
+    std::string info;
     std::source_location loc;
     std::vector<LogField> details;
     std::string timepoint;
 
-    // LogInfo(
-    //     log_level s, 
-    //     std::string_view i,
-    //     std::source_location l = std::source_location::current()
-    // ) : status(s), 
-    //     info(i), 
-    //     details({}), 
-    //     loc(std::move(l)), 
-    //     timepoint(detail::time_to_string(std::chrono::system_clock::now())) {}
-
+    LogInfo() = default;
     LogInfo(
         log_level s, 
         std::string_view i, 
@@ -144,6 +135,7 @@ std::string JsonFormat(const LogInfo&) noexcept;
 Format FormatIs(std::string_view name) noexcept;
 
 
+
 class ConsoleSink final : public ISink 
 {
 public:
@@ -153,6 +145,7 @@ public:
 private:
     Format format_;
 };
+
 
 
 class FileSink final : public ISink 
@@ -171,8 +164,6 @@ private:
 };
 
 
-/** logrr::Logger 
- */
 
 template <typename Sink>
 concept IsSink = std::derived_from<Sink, logrr::ISink>;
@@ -181,10 +172,10 @@ concept IsSink = std::derived_from<Sink, logrr::ISink>;
 class Logger 
 {
 public:
-    Logger(LogConfig&& config);
+    Logger(const LogConfig& config);
     virtual ~Logger() = default;
 
-    void log(LogInfo&& info) const noexcept;
+    void log(const LogInfo& info) const noexcept;
     void log(
         log_level level, 
         std::string_view info, 
@@ -198,6 +189,7 @@ protected:
     log_level level_;
     std::vector<std::shared_ptr<ISink>> sinks_;
 };
+
 
 
 class LogStream final
@@ -248,15 +240,16 @@ public:
         std::vector<LogField>&& details={}
     );
 
-
     ~LogStream();
     template <typename T> LogStream& operator<<(const T& v);
 private:
     Logger logger_;
-    log_level level_;
-    std::source_location loc_;
-    std::string msg_ = "";
-    std::vector<LogField> details_;
+    LogInfo linfo_;
+
+    // log_level level_;
+    // std::source_location loc_;
+    // std::string msg_ = "";
+    // std::vector<LogField> details_;
     std::vector<std::string> buffer_;
 };
 
@@ -269,8 +262,10 @@ LogStream& LogStream::operator<<(const T& v)
 }
 
 
+
 std::unique_ptr<ISink> CreateSink(const YAML::Node& sink);
 std::optional<LogConfig> ParseLogConfig(std::string_view config_name);
+
 
 
 class LogManager final

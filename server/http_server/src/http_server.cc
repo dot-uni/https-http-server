@@ -9,6 +9,8 @@ HttpServer::HttpServer(IRouter& router) : router_(router)
     hints_.ai_socktype = SOCK_STREAM;
     hints_.ai_protocol = IPPROTO_TCP;
     hints_.ai_flags = AI_PASSIVE;
+
+    LOG_DEBUG("HttpServer instance created");
 }
 
 
@@ -16,6 +18,7 @@ HttpServer::~HttpServer()
 {   
     freeAddrInfo(servinfo_);
     closeConnection(sockfd_);
+    LOG_DEBUG("HttpServer instance destroyed");
 }
 
 
@@ -30,8 +33,21 @@ void HttpServer::swap(HttpServer& other) noexcept
 
 bool HttpServer::listen(const char* host, const char* port, int max_connections, int bufsize) 
 {
-    LOG_INFO("Host: {}") << host;
-    return buildSocket(host, port) && listenInternal(max_connections, bufsize);
+    LOG_INFO("Starting HTTP server", {
+        logrr::field("host", host),
+        logrr::field("port", port),
+        logrr::field("max_connections", max_connections)
+    });
+
+    bool ok = buildSocket(host, port) && listenInternal(max_connections, bufsize);
+
+    if (!ok) {
+        LOG_CRIT("HttpServer failed to start listening — server cannot accept connections", {
+            logrr::field("host", host),
+            logrr::field("port", port)
+        });
+    }
+    return ok;
 }
 
 
@@ -52,7 +68,7 @@ bool HttpServer::buildSocket(const char* host, const char* port) noexcept
         next = p->ai_next;
         sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
         if (sockfd == kInvalidSocket) {
-            LOG_ERROR("Error from ::socket()", {
+            LOG_WARN("Error from ::socket(), trying next address", {
                 logrr::field("errno", errno),
                 logrr::field("strerror", strerror(errno))
             });
@@ -74,11 +90,10 @@ bool HttpServer::buildSocket(const char* host, const char* port) noexcept
 
         success = bind(sockfd, p->ai_addr, p->ai_addrlen);
         if (success == -1) {
-            LOG_ERROR("Error from ::bind()", {
+            LOG_WARN("Error from ::bind(), trying next address", {
                 logrr::field("errno", errno),
                 logrr::field("strerror", strerror(errno))
             });
-            freeaddrinfo(p);
             closeConnection(sockfd);
             p = next;
             continue;
@@ -87,9 +102,16 @@ bool HttpServer::buildSocket(const char* host, const char* port) noexcept
     }
 
     if (!p) {
-        LOG_ERROR("HttpServer failed to bind");
+        LOG_CRIT("HttpServer failed to bind to any resolved address", {
+            logrr::field("host", host),
+            logrr::field("port", port)
+        });
         return false;
     }
+
+    LOG_DEBUG("Socket bound successfully", {
+        logrr::field("sockfd", sockfd)
+    });
 
     closeConnection(sockfd_);
     servinfo_ = std::move(p);
@@ -100,6 +122,7 @@ bool HttpServer::buildSocket(const char* host, const char* port) noexcept
 
 void HttpServer::freeAddrInfo(addrinfo*& servinfo) noexcept 
 {
+    LOG_TRACE("Freeing addrinfo");
     freeaddrinfo(servinfo);
     servinfo = nullptr;
 }
@@ -126,8 +149,7 @@ bool HttpServer::setSockOptions(int sockfd, Opts&&... args) noexcept
 
 template <typename Opt> bool HttpServer::applyOption(int sockfd, Opt&& arg, int opt) noexcept 
 {
-    int success;
-    success = setsockopt(sockfd, SOL_SOCKET, arg, &opt, sizeof(opt));
+    int success = setsockopt(sockfd, SOL_SOCKET, arg, &opt, sizeof(opt));
     if (success == -1) {
         LOG_ERROR("Error from ::setsockopt()", {
             logrr::field("errno", errno),
@@ -143,25 +165,32 @@ bool HttpServer::listenInternal(int max_connections, int bufsize) noexcept
 {
     int success;
     if (max_connections <= 0) {
-        LOG_ERROR("The number of connections must be greater than 0");
+        LOG_ERROR("The number of connections must be greater than 0", {
+            logrr::field("max_connections", max_connections)
+        });
         return false;
     }
 
     if (bufsize <= 0) {
-        LOG_ERROR("The buffer size must be strictly greater than 0");
+        LOG_ERROR("The buffer size must be strictly greater than 0", {
+            logrr::field("bufsize", bufsize)
+        });
         return false;
     }
 
     success = ::listen(sockfd_, max_connections);
     if (success == -1) {
-        LOG_ERROR("Error from ::listen()", {
+        LOG_CRIT("Error from ::listen() — server cannot accept connections", {
             logrr::field("errno", errno),
             logrr::field("strerror", strerror(errno))
         });
         return false;
     }
 
-    LOG_INFO("Server waiting for connections...");
+    LOG_INFO("Server listening for connections", {
+        logrr::field("max_connections", max_connections),
+        logrr::field("bufsize", bufsize)
+    });
     clientIntakeCycle(bufsize);
     return true;
 }
@@ -172,7 +201,14 @@ void HttpServer::clientIntakeCycle(int bufsize) noexcept
     ClientConnection client;
     while(true) {
         client = acceptConnection();
-        if (client.sockfd == kInvalidSocket) continue;
+        if (client.sockfd == kInvalidSocket) {
+            LOG_WARN("Skipping invalid client connection");
+            continue;
+        }
+       
+        LOG_TRACE("Dispatching new HttpConnection", {
+            logrr::field("client_id", client.id)
+        });
         
         HttpConnection connection(client, bufsize);
         connection.process(router_);

@@ -5,13 +5,21 @@ namespace http {
 HttpConnection::HttpConnection(
     ClientConnection client, 
     int bufsize
-) : client_(std::move(client)), bufsize_(bufsize) {}
+) : client_(std::move(client)), bufsize_(bufsize) 
+{
+    LOG_DEBUG("New HttpConnection created", {
+        logrr::field("client_id", client_.id),
+        logrr::field("client_ip", client_.ip),
+        logrr::field("client_port", client_.port),
+        logrr::field("bufsize", bufsize_)
+    });
+}
 
 
 HttpConnection::~HttpConnection() 
 {
     closeConnection(client_.sockfd);
-    LOG_INFO("Client socket was closed", {
+    LOG_DEBUG("Client socket was closed", {
         logrr::field("client_id", client_.id),
         logrr::field("client_ip", client_.ip),
         logrr::field("client_port", client_.port)
@@ -21,6 +29,10 @@ HttpConnection::~HttpConnection()
 
 bool HttpConnection::process(const IRouter& router) 
 {
+    LOG_TRACE("Processing new request", {
+        logrr::field("client_id", client_.id)
+    });
+
     if (!HttpConnection::recv()) return false;
     std::string resp = execution(router);
     return HttpConnection::send(resp);
@@ -45,7 +57,7 @@ bool HttpConnection::recv() noexcept
             return false; 
         }
         else if (numbytes == 0) {
-            LOG_WARN("Client disconnected");
+            LOG_DEBUG("Client disconnected");
             return false;
         }
 
@@ -60,7 +72,7 @@ bool HttpConnection::recv() noexcept
         buf[numbytes] = '\0';
         req.append(buf);
 
-        LOG_INFO("`{}` bytes were received", {
+        LOG_TRACE("`{}` bytes were received", {
             logrr::field("client_id", client_.id),
             logrr::field("client_ip", client_.ip),
             logrr::field("client_port", client_.port)
@@ -70,7 +82,7 @@ bool HttpConnection::recv() noexcept
 
     req_ = std::move(req);
     
-    LOG_INFO("A total of `{}` bytes received from the client", {
+    LOG_DEBUG("A total of `{}` bytes received from the client", {
         logrr::field("client_id", client_.id),
         logrr::field("client_ip", client_.ip),
         logrr::field("client_port", client_.port)
@@ -79,10 +91,20 @@ bool HttpConnection::recv() noexcept
 }
 
 
-std::string HttpConnection::execution(const IRouter& router) noexcept {
+std::string HttpConnection::execution(const IRouter& router) noexcept 
+{
+    LOG_TRACE("Routing request", {
+        logrr::field("client_id", client_.id)
+    });
+
     HttpCodec codec;
     std::string resp = codec.process(req_, router); 
     return resp;
+
+    LOG_TRACE("Response generated", {
+        logrr::field("client_id", client_.id),
+        logrr::field("resp_size", resp.size())
+    });
 }
 
 
@@ -97,13 +119,27 @@ bool HttpConnection::send(const std::string& resp) noexcept
         if (numbytes < 0) {
             if (errno == EINTR) continue; 
             if (errno == EAGAIN || errno == EWOULDBLOCK) continue;
+
+            LOG_ERROR("Error from ::send", {
+                logrr::field("client_id", client_.id),
+                logrr::field("errno", errno),
+                logrr::field("strerror", strerror(errno))
+            });
             return false;
         }
         if (numbytes == 0) {
+            LOG_WARN("Send returned 0, connection likely closed", {
+                logrr::field("client_id", client_.id)
+            });
             return false;
         }
         total_send += static_cast<size_t>(numbytes);
     }
+
+    LOG_TRACE("Response sent successfully", {
+        logrr::field("client_id", client_.id),
+        logrr::field("bytes_sent", total_size)
+    });
     return true;
 }
 
@@ -114,7 +150,12 @@ void HttpConnection::closeConnection(int& sockfd) noexcept
         close(sockfd);
         sockfd = kEmptyDescriptor;
     }
-    else sockfd = kInvalidSocket;
+    else {
+        LOG_WARN("Attempted to close an already invalid socket", {
+            logrr::field("sockfd", sockfd)
+        });
+        sockfd = kInvalidSocket;
+    }
 }
 
 } // namespace http

@@ -6,18 +6,41 @@ HttpsConnection::HttpsConnection(
     SSL* ssl,
     const http::ClientConnection& client, 
     int bufsize
-) : http::HttpConnection(client, bufsize), ssl_(ssl) {}
+) : http::HttpConnection(client, bufsize), ssl_(ssl) 
+{
+    LOG_DEBUG("New HttpsConnection created", {
+        logrr::field("client_id", client.id),
+        logrr::field("client_ip", client.ip),
+        logrr::field("client_port", client.port)
+    });
+}
 
 
 HttpsConnection::~HttpsConnection()
 {
-    SSL_shutdown(ssl_);
+    int result = SSL_shutdown(ssl_);
+    if (result < 0) {
+        unsigned long sslErr = ERR_get_error();
+        char errbuf[256];
+        ERR_error_string_n(sslErr, errbuf, sizeof(errbuf));
+        LOG_WARN("SSL_shutdown did not complete cleanly", {
+            logrr::field("client_id", this->client_.id),
+            logrr::field("openssl_error", errbuf)
+        });
+    }
     SSL_free(ssl_);
+    LOG_DEBUG("HttpsConnection destroyed, SSL freed", {
+        logrr::field("client_id", this->client_.id)
+    });
 }
 
 
 bool HttpsConnection::process(const http::IRouter& router) 
 {
+    LOG_TRACE("Processing new HTTPS request", {
+        logrr::field("client_id", this->client_.id)
+    });
+
     if (!HttpsConnection::recv()) return false;
     std::string resp = this->execution(router);
     return HttpsConnection::send(resp);
@@ -44,7 +67,7 @@ bool HttpsConnection::recv() noexcept
 
             req.append(buf, numbytes);
 
-            LOG_INFO("`{}` bytes were received", {
+            LOG_TRACE("`{}` bytes were received", {
                 logrr::field("client_id", this->client_.id),
                 logrr::field("client_ip", this->client_.ip),
                 logrr::field("client_port", this->client_.port)
@@ -56,12 +79,12 @@ bool HttpsConnection::recv() noexcept
         int err = SSL_get_error(ssl_, numbytes);
 
         if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
-            LOG_INFO("SSL_read returned SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE, continuing to read");
+            LOG_TRACE("SSL_read returned WANT_READ/WANT_WRITE, retrying");
             continue;
         }
 
         if (err == SSL_ERROR_ZERO_RETURN) {
-            LOG_WARN("Client closed TLS connection (close_notify)");
+            LOG_DEBUG("Client closed TLS connection (close_notify)");
             return false;
         }
 
@@ -70,6 +93,7 @@ bool HttpsConnection::recv() noexcept
         ERR_error_string_n(sslErr, errbuf, sizeof(errbuf));
 
         LOG_ERROR("Error from SSL_read", {
+            logrr::field("client_id", this->client_.id),
             logrr::field("errno", errno),
             logrr::field("strerror", strerror(errno)),
             logrr::field("ssl_error_code", err),
@@ -83,7 +107,7 @@ bool HttpsConnection::recv() noexcept
 
     this->req_ = std::move(req);
 
-    LOG_INFO("A total of `{}` bytes received from the client", {
+    LOG_DEBUG("A total of `{}` bytes received from the client", { 
         logrr::field("client_id", this->client_.id),
         logrr::field("client_ip", this->client_.ip),
         logrr::field("client_port", this->client_.port)
@@ -110,12 +134,12 @@ bool HttpsConnection::send(const std::string& resp) noexcept
         int err = SSL_get_error(ssl_, numbytes);
 
         if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
-            LOG_INFO("SSL_write returned SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE, continuing to write");
+            LOG_TRACE("SSL_write returned WANT_READ/WANT_WRITE, retrying");
             continue;
         }
 
         if (err == SSL_ERROR_ZERO_RETURN) {
-            LOG_WARN("Connection closed by peer during SSL_write");
+            LOG_DEBUG("Connection closed by peer during SSL_write"); 
             return false;
         }
 
@@ -124,6 +148,7 @@ bool HttpsConnection::send(const std::string& resp) noexcept
         ERR_error_string_n(sslErr, errbuf, sizeof(errbuf));
 
         LOG_ERROR("Error from SSL_write", {
+            logrr::field("client_id", this->client_.id),
             logrr::field("errno", errno),
             logrr::field("strerror", strerror(errno)),
             logrr::field("ssl_error_code", err),
@@ -131,6 +156,11 @@ bool HttpsConnection::send(const std::string& resp) noexcept
         });
         return false;
     }
+
+    LOG_TRACE("Response sent successfully", {
+        logrr::field("client_id", this->client_.id),
+        logrr::field("bytes_sent", total_size)
+    });
     return true;
 }
 

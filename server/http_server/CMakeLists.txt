@@ -12,6 +12,7 @@ target_include_directories(http_server PUBLIC
 )
 
 target_link_libraries(http_server PUBLIC
+    fmt::fmt
     logging
     nlohmann_json::nlohmann_json
     OpenSSL::Crypto

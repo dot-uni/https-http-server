@@ -41,7 +41,7 @@ std::string ConsoleFormat(const LogInfo& i) noexcept
         }
 
         std::for_each(i.details.begin(), i.details.end(), [&base](const auto& detail){
-            base += fmt::format("\t{}: \"{}\"\n", detail.first, detail.second);
+            base += fmt::format("\t- {}: \"{}\"\n", detail.first, detail.second);
         });
         base.pop_back();
     } catch(fmt::format_error& mess) {
@@ -188,10 +188,10 @@ bool FileSink::flush() noexcept
 /** logrr::Logger 
  */
 
-Logger::Logger(LogConfig&& config) : level_(config.level), sinks_(std::move(config.sinks)) {}
+Logger::Logger(const LogConfig& config) : level_(config.level), sinks_(std::move(config.sinks)) {}
 
 
-void Logger::log(LogInfo&& info) const noexcept
+void Logger::log(const LogInfo& info) const noexcept
 {
     std::for_each(sinks_.begin(), sinks_.end(), [&info](const auto& sink){
         sink->log(info);
@@ -207,13 +207,16 @@ void Logger::log(
 ) const noexcept { log(LogInfo{level, info, std::move(details), std::move(loc)}); }
 
 
+/** logrr::LogStream 
+ */
+
 LogStream::LogStream(
     const Logger& logger, 
     log_level level, 
     std::source_location loc,
     std::string_view msg, 
     std::vector<LogField>&& details
-) : logger_(logger), level_(level), loc_(std::move(loc)), msg_(msg), details_(std::move(details)) {}
+) : logger_(logger), linfo_(level, msg, std::move(details), std::move(loc)) {}
 
 
 LogStream::LogStream(
@@ -230,7 +233,7 @@ LogStream::LogStream(
     std::source_location loc,
     std::string_view msg, 
     std::vector<LogField>&& details
-) : logger_(logger), level_(to_log_level(code)), loc_(std::move(loc)), msg_(msg) 
+) : logger_(logger)
 {
     http::status s = http::to_http_status(code);
     std::vector<LogField> details_base = {
@@ -240,7 +243,8 @@ LogStream::LogStream(
         logrr::field("obsolete_reason", http::obsolete_reason(s))
     };
     details.insert(details.end(), details_base.begin(), details_base.end());
-    details_ = std::move(details);
+
+    linfo_ = LogInfo(to_log_level(code), msg, std::move(details), std::move(loc));
 }
 
 
@@ -258,14 +262,15 @@ LogStream::LogStream(
     std::source_location loc,
     std::string_view msg, 
     std::vector<LogField>&& details
-) : logger_(logger), level_(to_log_level(status)), loc_(std::move(loc)), msg_(msg) 
+) : logger_(logger)
 {
     std::vector<LogField> details_base = {
         logrr::field("status", status),
         logrr::field("obsolete_reason", http::obsolete_reason(status))
     };
     details.insert(details.end(), details_base.begin(), details_base.end());
-    details_ = std::move(details);
+
+    linfo_ = LogInfo(to_log_level(status), msg, std::move(details), std::move(loc));
 }
 
 
@@ -285,15 +290,16 @@ LogStream::~LogStream()
             for (const auto& arg : buffer_) {
                 store.push_back(arg);
             }
-            msg_ = fmt::vformat(msg_, store);
+            linfo_.info = fmt::vformat(linfo_.info, store);
         }
-        logger_.log(level_, msg_, std::move(details_), std::move(loc_));
+        logger_.log(std::move(linfo_));
     } catch(const std::exception& msg) {
         detail::print_error(msg.what());
     } catch(...) {
         detail::print_error("unknown error in LogStream::~LogStream");
     }
-}
+} 
+
 
 std::unique_ptr<ISink> CreateSink(const YAML::Node& sink)
 {
@@ -378,6 +384,9 @@ std::optional<LogConfig> ParseLogConfig(std::string_view config_name)
     return LogConfig(level, std::move(sinks));
 }
 
+
+/** logrr::LogManager 
+ */
 
 bool LogManager::Init(std::string_view config_name)
 {
