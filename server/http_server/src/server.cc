@@ -2,8 +2,9 @@
 
 
 int main(int argc, char** argv) {
-    if (argc < 3) {
-        std::cerr << "Certificate and private key not specified.\nExample:  " << argv[0] << " cert.pem key.pem\n";
+    if (argc < 4) {
+        std::cerr << "Verify that the SSL certificate, private key, and logging configuration are specified\n";
+        std::cerr << "\t" << argv[0] << " [cert] [key] [path_to_config]\n";
         return 1;
     }
 
@@ -14,12 +15,8 @@ int main(int argc, char** argv) {
         });
     });
 
-    auto logger = std::make_shared<logrr::Logger>();
-
-    logger->add_sink<logrr::ConsoleSink<>>();
-    logger->add_sink<logrr::FileSink<>>();
-
-    https::HttpsServer server(argv[1], argv[2], router, logger);
+    logrr::LogManager::Init(argv[3]);
+    https::HttpsServer server(argv[1], argv[2], router);
     server.listen();
     return 0;
 }   

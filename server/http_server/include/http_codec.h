@@ -21,7 +21,6 @@ class HttpCodec
 {
 public:
     HttpCodec() = default;
-    HttpCodec(std::shared_ptr<logrr::Logger>);
     virtual ~HttpCodec() = default;
 
     std::string process(std::string_view raw_req, const IRouter& router);
@@ -31,7 +30,6 @@ protected:
     bool parse_w(std::string_view raw_req);
 protected:
     Request req_;
-    std::shared_ptr<logrr::Logger> logger_ = nullptr;
 };
 
 } // namespace http

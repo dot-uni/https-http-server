@@ -5,9 +5,8 @@ namespace https {
 HttpsServer::HttpsServer(
     const std::string& cert, 
     const std::string& key, 
-    http::IRouter& router,
-    std::shared_ptr<logrr::Logger> logger
-) : http::HttpServer(router, std::move(logger))
+    http::IRouter& router
+) : http::HttpServer(router)
 {
     SSL_library_init();
     SSL_load_error_strings();
@@ -19,10 +18,9 @@ HttpsServer::HttpsServer(
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        logrr::log_error(this->logger_.get(), {
+        LOG_ERROR("Failed to create SSL_CTX object", {
             logrr::field("OpenSSL_error_code", ssl_err),
-            logrr::field("OpenSSL_error_string", buf),
-            logrr::field("message", "Failed to create SSL_CTX object")
+            logrr::field("OpenSSL_error_string", buf)
         });
         throw SSLException(buf);
     }
@@ -35,10 +33,9 @@ HttpsServer::HttpsServer(
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        logrr::log_error(this->logger_.get(), {
+        LOG_ERROR("Failed to load certificate file", {
             logrr::field("OpenSSL_error_code", ssl_err),
-            logrr::field("OpenSSL_error_string", buf),
-            logrr::field("message", "Failed to load certificate file")
+            logrr::field("OpenSSL_error_string", buf)
         });
         throw SSLException(buf);
     }
@@ -52,19 +49,16 @@ HttpsServer::HttpsServer(
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        logrr::log_error(this->logger_.get(), {
+        LOG_ERROR("Failed to load private key file", {
             logrr::field("OpenSSL_error_code", ssl_err),
-            logrr::field("OpenSSL_error_string", buf),
-            logrr::field("message", "Failed to load private key file")
+            logrr::field("OpenSSL_error_string", buf)
         });
         throw SSLException(buf);
     }
 
     if (!SSL_CTX_check_private_key(ctx_)) {
         std::string msg = "Private key does not match certificate";
-        logrr::log_error(this->logger_.get(), {
-            logrr::field("message", msg)
-        });
+        LOG_ERROR(msg);
         throw SSLException(msg);
     }
 }
@@ -86,13 +80,11 @@ void HttpsServer::clientIntakeCycle(int bufsize) noexcept
         
         SSL* ssl = sslHandshake(client);
         if (!ssl) {
-            logrr::log_warning(this->logger_.get(), {
-                logrr::field("message", "A secure connection with the client was not established")
-            });
+            LOG_WARN("A secure connection with the client was not established");
             continue;
         }
 
-        HttpsConnection connection(ssl, client, this->logger_, bufsize);
+        HttpsConnection connection(ssl, client, bufsize);
         connection.process(this->router_);
     }
 }
@@ -106,10 +98,9 @@ SSL* HttpsServer::sslHandshake(const http::ClientConnection& client) noexcept
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        logrr::log_error(this->logger_.get(), {
+        LOG_ERROR("A secure connection with the client was not established", {
             logrr::field("OpenSSL_error_code", ssl_err),
-            logrr::field("OpenSSL_error_string", buf),
-            logrr::field("message", "Failed to create SSL object")
+            logrr::field("OpenSSL_error_string", buf)
         });
         return nullptr;
     }
@@ -121,18 +112,15 @@ SSL* HttpsServer::sslHandshake(const http::ClientConnection& client) noexcept
         char buf[256];
         ERR_error_string_n(ssl_err, buf, sizeof(buf));
 
-        logrr::log_warning(this->logger_.get(), {
+        LOG_WARN("Failed to perform SSL handshake", {
             logrr::field("OpenSSL_error_code", ssl_err),
-            logrr::field("OpenSSL_error_string", buf),
-            logrr::field("message", "Failed to perform SSL handshake")
+            logrr::field("OpenSSL_error_string", buf)
         });
         SSL_free(ssl);
         return nullptr;
     }
     else {
-        logrr::log_info(this->logger_.get(), {
-            logrr::field("message", "TLS handshake successful")
-        });
+        LOG_INFO("TLS handshake successful");
     }
 
     return ssl;

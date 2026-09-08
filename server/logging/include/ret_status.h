@@ -6,7 +6,7 @@
 #include <string_view>
 
 #include "status.h"
-#include "log_status.h"
+
 
 namespace http {
 
@@ -56,7 +56,7 @@ enum class retCode : unsigned {
 // Note: Success (0) is context-dependent — 200 for GET/query, 201 for creation,
 // 202 for an accepted async command. Pass the actual HTTP status separately
 // when handling Success; the value below is just a sensible default.
-constexpr status to_http_status(retCode code)
+constexpr http::status to_http_status(retCode code)
 {
     return int_to_status(static_cast<unsigned>(code) / 100);
 }
@@ -106,21 +106,6 @@ constexpr std::string_view retMesg(retCode code) {
     }
     return "<unknown-retCode>";
 }
-
-constexpr logrr::log_status to_log_status(retCode v)
-{
-    switch(static_cast<unsigned>(v) / 10000) {
-        case 1:     return logrr::log_status::info;
-        case 2:     return logrr::log_status::info;
-        case 3:     return logrr::log_status::info;
-        case 4:     return logrr::log_status::warning;
-        case 5:     return logrr::log_status::error;
-        default:
-            break;
-    }
-    return logrr::log_status::unknown;
-}
-
 
 } // namespace http
 

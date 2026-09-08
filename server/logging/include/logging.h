@@ -13,37 +13,70 @@
 #include <sstream>
 #include <iostream>
 #include <fstream>
+#include <functional>
+#include <fmt/args.h>
+#include <fmt/core.h>
+#include <fmt/ranges.h>
 #include <fmt/format.h>
 #include <fmt/chrono.h>
 #include <fmt/ostream.h>
 #include <iomanip>
 #include <nlohmann/json.hpp>
+#include <yaml-cpp/yaml.h>
 
 #include "tostring.h"
-#include "log_status.h"
+#include "log_level.h"
 #include "status.h"
 #include "ret_status.h"
+
+
+#define LOG(level, ...)                                                            \
+    for (bool should_log = logrr::ShouldLog(logrr::to_log_level(level)); should_log; should_log = false)     \
+        if (auto logger = logrr::LogManager::Get(); logger)                             \
+            logrr::LogStream(*logger, level, std::source_location::current() __VA_OPT__(,) __VA_ARGS__)
+
+#define LOG_INFO(...) LOG(logrr::log_level::info, __VA_ARGS__)
+#define LOG_ERROR(...) LOG(logrr::log_level::error, __VA_ARGS__)
+#define LOG_WARN(...) LOG(logrr::log_level::warning, __VA_ARGS__)
+#define LOG_CRIT(...) LOG(logrr::log_level::critical, __VA_ARGS__)
+#define LOG_DEBUG(...) LOG(logrr::log_level::debug, __VA_ARGS__)
+#define LOG_TRACE(...) LOG(logrr::log_level::trace, __VA_ARGS__)
+
+#define LOG_USING_RETCODE(code, ...) LOG(code __VA_OPT__(,) __VA_ARGS__)
+#define LOG_USING_STATUS(status, ...) LOG(status __VA_OPT__(,) __VA_ARGS__)
 
 
 namespace detail {
 
 std::string time_to_string(std::chrono::system_clock::time_point&& tp);
-void strerror(std::string_view msg);
+
+
+struct ErrorMessage 
+{
+    std::string_view msg;
+    std::source_location loc;
+    ErrorMessage(const char* m, std::source_location l = std::source_location::current()) : msg(m), loc(l) {}
+    ErrorMessage(std::string_view m, std::source_location l = std::source_location::current()) : msg(m), loc(l) {}
+};
+
+
+template <typename... Args>
+void print_error(ErrorMessage m, Args&&... args) 
+{
+    fmt::print(stderr, R"([error]: {}:({}:{}) {})", m.loc.file_name(), m.loc.line(), m.loc.column(), m.msg);
+    if (!sizeof...(args)) {
+        (fmt::print(stderr, "{}", args), ...);
+    }
+    fmt::print(stderr, "\n");
+} 
 
 } // namespace detail
 
 
 namespace logrr {
 
-struct LogRecord;
-
-template <typename Formatter>
-concept HasFormat = requires(LogRecord l) {
-    { Formatter::format(std::move(l)) } -> std::convertible_to<std::string>;
-};
-
-
 using LogField = std::pair<std::string, std::string>;
+
 
 template <typename T>
 constexpr LogField field(std::string_view key, T&& value) 
@@ -58,134 +91,84 @@ constexpr LogField field(std::string_view key, T&& value)
 }
 
 
-struct LogRecord 
+struct LogInfo
 {
-    logrr::log_status status;
+    log_level status;
+    std::string_view info;
     std::source_location loc;
-    std::string timepoint;
     std::vector<LogField> details;
-};
+    std::string timepoint;
 
+    // LogInfo(
+    //     log_level s, 
+    //     std::string_view i,
+    //     std::source_location l = std::source_location::current()
+    // ) : status(s), 
+    //     info(i), 
+    //     details({}), 
+    //     loc(std::move(l)), 
+    //     timepoint(detail::time_to_string(std::chrono::system_clock::now())) {}
 
-struct SingleLineFormatter final
-{
-    static std::string format(const LogRecord& r) noexcept;
-};
-
-
-struct JsonFormatter final
-{
-    static std::string format(const LogRecord& r) noexcept;
+    LogInfo(
+        log_level s, 
+        std::string_view i, 
+        std::vector<LogField>&& d={},
+        std::source_location l = std::source_location::current()
+    ) : status(s), 
+        info(i), 
+        details(std::move(d)), 
+        loc(std::move(l)), 
+        timepoint(detail::time_to_string(std::chrono::system_clock::now())) {}
 };
 
 
 struct ISink 
 {
     virtual ~ISink() = default;
-    virtual bool log(const LogRecord& record) noexcept = 0;
-    virtual bool flush() noexcept { return true; }
+    virtual bool log(const LogInfo&) noexcept = 0;
 };
 
 
-/** logrr::ConsoleSink 
- */
+struct LogConfig
+{
+    logrr::log_level level;
+    std::vector<std::shared_ptr<ISink>> sinks;
+};
 
-template <typename Formatter = SingleLineFormatter> 
-requires HasFormat<Formatter>
+
+using Format = std::function<std::string(const LogInfo&)>;
+
+std::string ConsoleFormat(const LogInfo&) noexcept;
+std::string JsonFormat(const LogInfo&) noexcept;
+
+Format FormatIs(std::string_view name) noexcept;
+
+
 class ConsoleSink final : public ISink 
 {
 public:
-    ConsoleSink() = default;
-    bool log(const LogRecord& record) noexcept override;
+    ConsoleSink(Format format = ConsoleFormat) : format_(format) {}
+    static std::unique_ptr<ConsoleSink> create(const YAML::Node& config);
+    bool log(const LogInfo& info) noexcept override;
 private:
-    std::mutex mtx_;
+    Format format_;
 };
 
 
-template <typename Formatter>
-requires HasFormat<Formatter>
-bool ConsoleSink<Formatter>::log(const LogRecord& record) noexcept 
-{
-    std::string inf;
-    inf = Formatter::format(record);
-
-    fmt::print("{}\n", inf);
-    return true;
-}
-
-
-/** logrr::FileSink 
- */
-
-
-template <typename Formatter = JsonFormatter> 
-requires HasFormat<Formatter>
 class FileSink final : public ISink 
 {
 public:
-    FileSink();
-    FileSink(std::string_view file_name);
+    FileSink(Format format = JsonFormat);
+    FileSink(std::string path, Format format);
     ~FileSink() { file_.close(); }
-    bool log(const LogRecord& record) noexcept override;
-    bool flush() noexcept override;
+
+    static std::unique_ptr<FileSink> create(const YAML::Node& config);
+    bool log(const LogInfo& info) noexcept override;
+    bool flush() noexcept;
 private:
-    std::mutex mtx_;
+    Format format_;
     std::ofstream file_;
 };
-
-
-template <typename Formatter>
-requires HasFormat<Formatter>
-FileSink<Formatter>::FileSink() : 
-FileSink(fmt::format("log_{}.log", detail::time_to_string(std::chrono::system_clock::now()))) {}
-
-
-template <typename Formatter>
-requires HasFormat<Formatter>
-FileSink<Formatter>::FileSink(std::string_view file_name) 
-{
-    file_.open(file_name, std::ios::app);
-    if (!file_.is_open()) {
-        throw std::runtime_error(fmt::format("{}:{} Failed to open file '{}': {}", 
-                                    __FILE_NAME__, __LINE__, file_name, strerror(errno)));
-    }
-}
-
-
-template <typename Formatter>
-requires HasFormat<Formatter>
-bool FileSink<Formatter>::log(const LogRecord& record) noexcept 
-{
-    std::string inf;
-    inf = Formatter::format(record);
-
-    file_ << inf << '\n';
-    if (file_.fail()) {
-        std::cerr << __FILE_NAME__ << ":" << __LINE__ << " " << "Error writing to log file: " << std::strerror(errno) << '\n';
-        detail::strerror(frmt::concat("Error writing to log file: ", std::strerror(errno)));
-        file_.clear(); 
-        return false;
-    }
-
-    if (important_log(record.status)) {
-        return flush();
-    }
-    return true;
-}
-
-
-template <typename Formatter>
-requires HasFormat<Formatter>
-bool FileSink<Formatter>::flush() noexcept 
-{
-    file_.flush();
-    if (file_.fail()) {
-        detail::strerror(frmt::concat("Failed to flush file: ", std::strerror(errno)));
-        file_.clear(); 
-        return false;
-    }
-    return true;
-}
 
 
 /** logrr::Logger 
@@ -198,87 +181,112 @@ concept IsSink = std::derived_from<Sink, logrr::ISink>;
 class Logger 
 {
 public:
-    constexpr Logger(logrr::log_status level = logrr::log_status::info) : level_(level) {}
-    constexpr Logger(const Logger&) noexcept;
-    constexpr Logger(Logger&&) noexcept;
+    Logger(LogConfig&& config);
     virtual ~Logger() = default;
-    constexpr Logger& operator=(const Logger&) noexcept;
-    constexpr Logger& operator=(Logger&&) noexcept;
 
+    void log(LogInfo&& info) const noexcept;
     void log(
-        logrr::log_status status,
-        std::vector<LogField>&& dtls={},
-        const std::source_location loc = std::source_location::current()
+        log_level level, 
+        std::string_view info, 
+        std::vector<LogField>&& details={},
+        std::source_location loc = std::source_location::current()
     ) const noexcept;
 
-    void log(
-        http::retCode code,
-        std::vector<LogField>&& dtls={},
-        const std::source_location loc = std::source_location::current()
-    ) const noexcept;
-
-    void log(
-        http::status status,
-        std::vector<LogField>&& dtls={},
-        const std::source_location loc = std::source_location::current()
-    ) const noexcept;
-
-    void info(std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) const noexcept;
-    void error(std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) const noexcept;
-    void warning(std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) const noexcept;
-    void critical(std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) const noexcept;
-    void debug(std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) const noexcept;
-    void trace(std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) const noexcept;
-
-    void flush() noexcept;
-
-    template <typename Sink, typename... Args> 
-    requires IsSink<Sink> void add_sink(Args&&... args);
-
-    template <typename Sink> 
-    requires IsSink<Sink> bool contain_sink() const noexcept;
-
-    constexpr void set_level(logrr::log_status level) noexcept { level_ = level; }
-    constexpr logrr::log_status level() const noexcept { return level_; }
+    constexpr void set_level(logrr::log_level level) noexcept { level_ = level; }
+    constexpr logrr::log_level level() const noexcept { return level_; }
 protected:
-    logrr::log_status level_;
+    log_level level_;
     std::vector<std::shared_ptr<ISink>> sinks_;
 };
 
 
-template <typename Sink, typename... Args> 
-requires IsSink<Sink> 
-void Logger::add_sink(Args&&... args) 
-{      
-    if (contain_sink<Sink>()) {
-        throw std::logic_error("Such a 'sink' already exists in std::vector<std::shared_ptr<ISink>> sinks_");
-    }
-    auto new_sink = std::make_shared<std::remove_cvref_t<Sink>>(std::forward<Args>(args)...);
-    sinks_.push_back(new_sink);
-}
-
-
-template <typename Sink> 
-requires IsSink<Sink>
-bool Logger::contain_sink() const noexcept 
+class LogStream final
 {
-    using target_type = std::remove_cvref_t<Sink>;
-    return std::any_of(sinks_.begin(), sinks_.end(), [](const auto& sink) {
-        return dynamic_cast<const target_type*>(sink.get()) != nullptr;
-    });
+public:
+    // logrr::log_level 
+    LogStream(
+        const Logger& logger, 
+        log_level level, 
+        std::source_location loc,
+        std::string_view msg, 
+        std::vector<LogField>&& details={}
+    );
+    LogStream(
+        const Logger& logger, 
+        log_level level, 
+        std::source_location loc,
+        std::vector<LogField>&& details
+    );
+
+    // http::retCode 
+    LogStream(
+        const Logger& logger, 
+        http::retCode code, 
+        std::source_location loc,
+        std::string_view msg, 
+        std::vector<LogField>&& details={}
+    );
+    LogStream(
+        const Logger& logger, 
+        http::retCode code, 
+        std::source_location loc,
+        std::vector<LogField>&& details={}
+    );
+
+    // http::status 
+    LogStream(
+        const Logger& logger, 
+        http::status status, 
+        std::source_location loc,
+        std::string_view msg, 
+        std::vector<LogField>&& details={}
+    );
+    LogStream(
+        const Logger& logger, 
+        http::status status, 
+        std::source_location loc,
+        std::vector<LogField>&& details={}
+    );
+
+
+    ~LogStream();
+    template <typename T> LogStream& operator<<(const T& v);
+private:
+    Logger logger_;
+    log_level level_;
+    std::source_location loc_;
+    std::string msg_ = "";
+    std::vector<LogField> details_;
+    std::vector<std::string> buffer_;
+};
+
+
+template <typename T> 
+LogStream& LogStream::operator<<(const T& v)
+{
+    buffer_.push_back(frmt::to_string(v));
+    return *this;
 }
 
 
-void log_info(const Logger* const l, std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) noexcept;
-void log_error(const Logger* const l, std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) noexcept;
-void log_warning(const Logger* const l, std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) noexcept;
-void log_critical(const Logger* const l, std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) noexcept;
-void log_debug(const Logger* const l, std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) noexcept;
-void log_trace(const Logger* const l, std::vector<LogField>&& dtls={}, const std::source_location loc = std::source_location::current()) noexcept;
+std::unique_ptr<ISink> CreateSink(const YAML::Node& sink);
+std::optional<LogConfig> ParseLogConfig(std::string_view config_name);
 
-void log_using_retcode(http::retCode code, const Logger* const l, std::vector<LogField>&& dtls={}, std::source_location loc = std::source_location::current()) noexcept;
-void log_using_status(http::status status, const Logger* const l, std::vector<LogField>&& dtls={}, std::source_location loc = std::source_location::current()) noexcept;
 
+class LogManager final
+{
+public:
+    static bool Init(std::string_view config_name);
+    static bool Init(LogConfig&& config);
+    static std::optional<std::reference_wrapper<Logger>> Get() noexcept;
+    static log_level GetLevel() noexcept;
+    static void ShutDown() noexcept;
+private:
+    inline static std::unique_ptr<Logger> logger_ = nullptr;
+}; 
+
+
+bool ShouldLog(logrr::log_level level) noexcept;
 
 } // namespace logrr
 

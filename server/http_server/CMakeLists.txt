@@ -1,6 +1,5 @@
 add_library(http_server STATIC
     src/uuid.cc
-    src/status.cc
     src/crypto.cc
     src/http_codec.cc
     src/http_message.cc

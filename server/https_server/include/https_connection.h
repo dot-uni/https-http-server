@@ -16,12 +16,6 @@ public:
         const http::ClientConnection& client, 
         int bufsize=http::kReceptionBufSize
     );
-    HttpsConnection(
-        SSL* ssl,
-        const http::ClientConnection& client, 
-        std::shared_ptr<logrr::Logger> logger, 
-        int bufsize=http::kReceptionBufSize
-    );
     virtual ~HttpsConnection();
     bool process(const http::IRouter& router) override;
 protected:

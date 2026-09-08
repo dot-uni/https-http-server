@@ -67,7 +67,7 @@ namespace http {
 class HttpServer 
 {
 public:
-    explicit HttpServer(IRouter& router, std::shared_ptr<logrr::Logger> logger);
+    explicit HttpServer(IRouter& router);
     virtual ~HttpServer();
     HttpServer(HttpServer&& serv) = delete;
     HttpServer(const HttpServer&) = delete;
@@ -97,7 +97,6 @@ protected:
     int sockfd_ = kEmptyDescriptor;
     addrinfo* servinfo_ = nullptr;
     addrinfo hints_;
-    std::shared_ptr<logrr::Logger> logger_ = nullptr;
     bool is_running_ = false;
     std::mutex mtx_;
     IRouter& router_;

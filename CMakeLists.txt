@@ -9,8 +9,32 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 option(BUILD_BENCHMARKS "Build benchmarks" ON)
 # option(BUILD_TESTS "Build unit tests" ON)
 
-find_package(fmt CONFIG REQUIRED)
-find_package(nlohmann_json 3.12.0 REQUIRED)
+include(FetchContent)
+
+FetchContent_Declare(
+  yaml-cpp
+  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+  GIT_TAG yaml-cpp-0.9.0 
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(yaml-cpp)
+
+FetchContent_Declare(
+  fmt
+  GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+  GIT_TAG 11.0.2 
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(fmt)
+
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.12.0
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 find_package(OpenSSL REQUIRED)
 
 add_subdirectory(server)

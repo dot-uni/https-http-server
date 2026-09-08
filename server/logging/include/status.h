@@ -3,8 +3,6 @@
 
 #include <string_view>
 
-#include "log_status.h"
-
 #define FALLTHROUGH [[fallthrough]]
 
 namespace http {
@@ -146,9 +144,6 @@ status_class to_status_class(status v);
     @param v The status code to use.
 */
 std::string_view obsolete_reason(status v);
-
-
-logrr::log_status to_log_status(status v);
 
 } // namespace http
 

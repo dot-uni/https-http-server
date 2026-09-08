@@ -1,4 +1,5 @@
 build/
+benchmark/
 server.log
 crypto-simulation-api*
 log_*

@@ -30,11 +30,6 @@ public:
         ClientConnection client, 
         int bufsize=kReceptionBufSize
     );
-    HttpConnection(
-        ClientConnection client, 
-        std::shared_ptr<logrr::Logger> logger, 
-        int bufsize=kReceptionBufSize
-    );
     virtual ~HttpConnection();
     virtual bool process(const IRouter& router);
 protected:
@@ -44,7 +39,6 @@ protected:
     void closeConnection(int& sockfd) noexcept;
 protected:
     ClientConnection client_; 
-    std::shared_ptr<logrr::Logger> logger_ = nullptr;
     std::string req_;
     int bufsize_;
 };

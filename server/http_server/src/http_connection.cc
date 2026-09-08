@@ -8,23 +8,14 @@ HttpConnection::HttpConnection(
 ) : client_(std::move(client)), bufsize_(bufsize) {}
 
 
-HttpConnection::HttpConnection(
-    ClientConnection client, 
-    std::shared_ptr<logrr::Logger> logger, 
-    int bufsize
-) : client_(std::move(client)), logger_(std::move(logger)), bufsize_(bufsize) {}
-
-
 HttpConnection::~HttpConnection() 
 {
     closeConnection(client_.sockfd);
-    logrr::log_info(logger_.get(), {
+    LOG_INFO("Client socket was closed", {
         logrr::field("client_id", client_.id),
         logrr::field("client_ip", client_.ip),
-        logrr::field("client_port", client_.port),
-        logrr::field("message", "Client socket was closed")
+        logrr::field("client_port", client_.port)
     });
-
 }
 
 
@@ -45,26 +36,22 @@ bool HttpConnection::recv() noexcept
     while(true) {
         numbytes = ::recv(client_.sockfd, buf, sizeof(buf), 0);
         if (numbytes == -1) {
-            logrr::log_error(logger_.get(), {
+            LOG_ERROR("Error from ::recv", {
                 logrr::field("errno", errno),
-                logrr::field("strerror", strerror(errno)),
-                logrr::field("message", "Error from ::recv")
+                logrr::field("strerror", strerror(errno))
             });
             Response resp = makeResp(retCode::InternalError);
             HttpConnection::send(HttpCodec::serialize(resp));
             return false; 
         }
         else if (numbytes == 0) {
-            logrr::log_warning(logger_.get(), {
-                logrr::field("message", "Client disconnected")
-            });
+            LOG_WARN("Client disconnected");
             return false;
         }
 
         resbytes += numbytes;
         if (resbytes >= kReceptionBufLimit) {
-            logrr::log_using_retcode(retCode::RequestBufferOverflow, logger_.get());
-
+            LOG_USING_RETCODE(retCode::RequestBufferOverflow);
             Response resp = makeResp(retCode::RequestBufferOverflow);
             HttpConnection::send(HttpCodec::serialize(resp));
             return false;
@@ -73,29 +60,27 @@ bool HttpConnection::recv() noexcept
         buf[numbytes] = '\0';
         req.append(buf);
 
-        logrr::log_info(logger_.get(), {
+        LOG_INFO("`{}` bytes were received", {
             logrr::field("client_id", client_.id),
             logrr::field("client_ip", client_.ip),
-            logrr::field("client_port", client_.port),
-            logrr::field("message", frmt::concat(numbytes, " bytes were received"))
-        });
+            logrr::field("client_port", client_.port)
+        }) << numbytes;
         if (numbytes < bufsize_) break;
     } 
 
     req_ = std::move(req);
     
-    logrr::log_info(logger_.get(), {
+    LOG_INFO("A total of `{}` bytes received from the client", {
         logrr::field("client_id", client_.id),
         logrr::field("client_ip", client_.ip),
-        logrr::field("client_port", client_.port),
-        logrr::field("message", frmt::concat("A total of ", resbytes, " bytes received from the client"))   
-    });
+        logrr::field("client_port", client_.port)
+    }) << resbytes;
     return true;
 }
 
 
 std::string HttpConnection::execution(const IRouter& router) noexcept {
-    HttpCodec codec(logger_);
+    HttpCodec codec;
     std::string resp = codec.process(req_, router); 
     return resp;
 }

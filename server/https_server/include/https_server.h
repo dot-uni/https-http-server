@@ -22,8 +22,7 @@ public:
     HttpsServer(
         const std::string& cert, 
         const std::string& key, 
-        http::IRouter& router,
-        std::shared_ptr<logrr::Logger> logger
+        http::IRouter& router
     );
     virtual ~HttpsServer();
 protected:

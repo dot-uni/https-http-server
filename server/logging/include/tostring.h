@@ -24,6 +24,18 @@ constexpr std::string to_string(T&& value) {
 }
 
 
+template <typename T>
+constexpr std::string to_string(const T& value) {
+    using type = std::remove_cvref_t<T>;
+    if constexpr(std::is_enum_v<type>) {
+        return std::to_string(static_cast<std::underlying_type_t<type>>(value));
+    } 
+    else {
+        return fmt::format("{}", value);
+    }
+}
+
+
 template <typename... Args>
 constexpr std::string concat(Args&&... args) {
     std::string res;

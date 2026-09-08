@@ -20,12 +20,6 @@ std::string time_to_string(std::chrono::system_clock::time_point&& tp)
     return fmt::format("{:%Y-%m-%d %H:%M:%S}.{:03}", tm, ms);
 }
 
-
-void strerror(std::string_view msg) 
-{
-    std::cerr << __FILE_NAME__ << ":" << __LINE__ << " " << __func__ << R"( ")" << msg << R"(")" << '\n';
-} 
-
 } // namespace detail
 
 
@@ -35,19 +29,23 @@ namespace logrr {
 /** logrr::SingleLineFormatter 
  */
 
-std::string SingleLineFormatter::format(const LogRecord& r) noexcept
+std::string ConsoleFormat(const LogInfo& i) noexcept
 {
     std::string base = "";
     try {
-        base = fmt::format("[{}] [{}] {}:({}:{}) `{}`", 
-            r.timepoint, colored_reason(r.status), r.loc.file_name(), r.loc.line(), r.loc.column(), r.loc.function_name());
-        for (auto&& detail : r.details) {
-            base += fmt::format(R"( {}: "{}")", detail.first, detail.second);
+        base = fmt::format(R"([{}] [{}] {}:({}:{}) "{}")", 
+            i.timepoint, colored_reason(i.status), i.loc.file_name(), i.loc.line(), i.loc.column(), i.info);
+
+        if (i.details.size()) {
+            base += fmt::format(" details:\n");
         }
-    }
-    catch(fmt::format_error& mess) 
-    {
-        detail::strerror(mess.what());
+
+        std::for_each(i.details.begin(), i.details.end(), [&base](const auto& detail){
+            base += fmt::format("\t{}: \"{}\"\n", detail.first, detail.second);
+        });
+        base.pop_back();
+    } catch(fmt::format_error& mess) {
+        detail::print_error(mess.what());
     }
     return base;
 }
@@ -56,197 +54,389 @@ std::string SingleLineFormatter::format(const LogRecord& r) noexcept
 /** logrr::JsonFormatter 
  */
 
-std::string JsonFormatter::format(const LogRecord& r) noexcept
+std::string JsonFormat(const LogInfo& i) noexcept
 {
     nlohmann::ordered_json j = {
-        {"timepoint", std::move(r.timepoint)},
-        {"status_code", r.status},
-        {"status", logrr::obsolete_reason(r.status)},
-        {"file", r.loc.file_name()},
-        {"line", r.loc.line()},
-        {"function", r.loc.function_name()},
-        {"details", std::move(r.details)}
+        {"timepoint", std::move(i.timepoint)},
+        {"status_code", i.status},
+        {"status", logrr::obsolete_reason(i.status)},
+        {"file", i.loc.file_name()},
+        {"line", i.loc.line()},
+        {"details", std::move(i.details)}
     };
     return j.dump();
+}
+
+
+Format FormatIs(std::string_view name) noexcept
+{
+    if (name == "console") return ConsoleFormat;
+    else if (name == "json") return JsonFormat;
+    return nullptr;
+}
+
+
+/** logrr::ConsoleSink 
+ */
+
+std::unique_ptr<ConsoleSink> ConsoleSink::create(const YAML::Node& config)
+{
+    if (!config || !config.IsMap()) return nullptr;
+    
+    const auto format_node = config["format"];
+    if (!format_node || !format_node.IsScalar()) {
+        return nullptr;
+    }
+
+    Format format = FormatIs(format_node.as<std::string>());
+    if (!format) {
+        return nullptr;
+    }
+
+    return std::make_unique<ConsoleSink>(format);
+}
+
+
+bool ConsoleSink::log(const LogInfo& info) noexcept 
+{
+    fmt::print("{}\n", format_(info));
+    return true;
+}
+
+
+/** logrr::FileSink 
+ */
+
+FileSink::FileSink(Format format) : 
+FileSink(fmt::format("log_{}.log", detail::time_to_string(std::chrono::system_clock::now())), format) {}
+
+
+FileSink::FileSink(std::string path, Format format) : format_(format)
+{
+    if (!path.length()) {
+        path = fmt::format("log_{}.log", detail::time_to_string(std::chrono::system_clock::now()));
+    }
+
+    file_.open(path, std::ios::app);
+    if (!file_.is_open()) {
+        throw std::runtime_error(fmt::format("Failed to open file `{}`: {}", path, strerror(errno)));
+    }
+}
+
+
+std::unique_ptr<FileSink> FileSink::create(const YAML::Node& config)
+{
+    if (!config || !config.IsMap()) {
+        return nullptr;
+    }
+
+    const auto format_node = config["format"];
+    if (!format_node || !format_node.IsScalar()) {
+        return nullptr;
+    } 
+
+    const auto path_node = config["path"];
+    if (!path_node || !path_node.IsScalar()) {
+        return nullptr;
+    } 
+
+    Format format = FormatIs(format_node.as<std::string>());
+    if (!format) {
+        return nullptr;
+    }
+
+    std::string path = path_node.as<std::string>();
+    try {
+        return std::make_unique<FileSink>(path, format);
+    } catch(const std::exception& msg) {
+        detail::print_error(msg.what());
+    }
+    return nullptr;
+}
+
+
+bool FileSink::log(const LogInfo& info) noexcept 
+{
+    std::string inf = format_(info);
+
+    file_ << inf << '\n';
+    if (file_.fail()) {
+        detail::print_error("Error writing to log file: ", strerror(errno));
+        file_.clear(); 
+        return false;
+    }
+
+    if (important_log(info.status)) {
+        return flush();
+    }
+    return true;
+}
+
+
+bool FileSink::flush() noexcept 
+{
+    file_.flush();
+    if (file_.fail()) {
+        detail::print_error("Failed to flush file: ", std::strerror(errno));
+        file_.clear(); 
+        return false;
+    }
+    return true;
 }
 
 
 /** logrr::Logger 
  */
 
-constexpr Logger::Logger(const Logger& logger) noexcept 
+Logger::Logger(LogConfig&& config) : level_(config.level), sinks_(std::move(config.sinks)) {}
+
+
+void Logger::log(LogInfo&& info) const noexcept
 {
-    sinks_ = logger.sinks_;
-}
-
-constexpr Logger::Logger(Logger&& logger) noexcept 
-{
-    sinks_ = std::move(logger.sinks_);
-}
-
-constexpr Logger& Logger::operator=(const Logger& logger) noexcept 
-{
-    if (&logger == this) return *this;
-    sinks_ = logger.sinks_;
-    return *this;
-}
-
-constexpr Logger& Logger::operator=(Logger&& logger) noexcept 
-{
-    sinks_ = std::move(logger.sinks_);
-    return *this;
-}
-
-
-void Logger::log(
-    logrr::log_status status,
-    std::vector<LogField>&& dtls,
-    const std::source_location loc
-) const noexcept 
-{
-    if (level_ <= status) {
-        LogRecord record = {
-            .status = status,
-            .loc = loc,
-            .timepoint = detail::time_to_string(std::chrono::system_clock::now()),
-            .details = std::move(dtls)
-        };
-        std::for_each(sinks_.begin(), sinks_.end(), [&record](const auto& sink){
-            sink->log(record);
-        });
-    }
-}
-
-
-void Logger::log(
-    http::retCode code,
-    std::vector<LogField>&& dtls,
-    const std::source_location loc
-) const noexcept
-{
-    log(http::to_log_status(code), std::move(dtls), loc);
-}
-
-
-void Logger::log(
-    http::status status,
-    std::vector<LogField>&& dtls,
-    const std::source_location loc
-) const noexcept
-{
-    log(http::to_log_status(status), std::move(dtls), loc);
-}
-
-
-// info
-void Logger::info(std::vector<LogField>&& dtls, const std::source_location loc) const noexcept
-{
-    log(logrr::log_status::info, std::move(dtls), loc);
-}
-
-
-/// error
-void Logger::error(std::vector<LogField>&& dtls, const std::source_location loc) const noexcept
-{
-    log(logrr::log_status::error, std::move(dtls), loc);
-}
-
-
-/// warning
-void Logger::warning(std::vector<LogField>&& dtls, const std::source_location loc) const noexcept
-{
-    log(logrr::log_status::warning, std::move(dtls), loc);
-}
-
-
-/// critical
-void Logger::critical(std::vector<LogField>&& dtls, const std::source_location loc) const noexcept
-{
-    log(logrr::log_status::critical, std::move(dtls), loc);
-}
-
-
-/// debug
-void Logger::debug(std::vector<LogField>&& dtls, const std::source_location loc) const noexcept
-{
-    log(logrr::log_status::debug, std::move(dtls), loc);
-}
-
-
-/// trace
-void Logger::trace(std::vector<LogField>&& dtls, const std::source_location loc) const noexcept
-{
-    log(logrr::log_status::trace, std::move(dtls), loc);
-}
-
-
-void Logger::flush() noexcept 
-{
-    std::for_each(sinks_.begin(), sinks_.end(), [](const auto& sink){
-        sink->flush();
+    std::for_each(sinks_.begin(), sinks_.end(), [&info](const auto& sink){
+        sink->log(info);
     });
 }
 
 
-void log_info(const Logger* const l, std::vector<LogField>&& dtls, const std::source_location loc) noexcept
+void Logger::log(
+    log_level level, 
+    std::string_view info, 
+    std::vector<LogField>&& details,
+    std::source_location loc
+) const noexcept { log(LogInfo{level, info, std::move(details), std::move(loc)}); }
+
+
+LogStream::LogStream(
+    const Logger& logger, 
+    log_level level, 
+    std::source_location loc,
+    std::string_view msg, 
+    std::vector<LogField>&& details
+) : logger_(logger), level_(level), loc_(std::move(loc)), msg_(msg), details_(std::move(details)) {}
+
+
+LogStream::LogStream(
+    const Logger& logger, 
+    log_level level, 
+    std::source_location loc,
+    std::vector<LogField>&& details
+) : LogStream(logger, level, std::move(loc), "", std::move(details)) {}
+
+
+LogStream::LogStream(
+    const Logger& logger, 
+    http::retCode code, 
+    std::source_location loc,
+    std::string_view msg, 
+    std::vector<LogField>&& details
+) : logger_(logger), level_(to_log_level(code)), loc_(std::move(loc)), msg_(msg) 
 {
-    if (l) { l->info(std::move(dtls), loc); }
-}
-
-void log_error(const Logger* const l, std::vector<LogField>&& dtls, const std::source_location loc) noexcept
-{
-    if (l) { l->error(std::move(dtls), loc); }
-}
-
-void log_warning(const Logger* const l, std::vector<LogField>&& dtls, const std::source_location loc) noexcept
-{
-    if (l) { l->warning(std::move(dtls), loc); }
-}
-
-void log_critical(const Logger* const l, std::vector<LogField>&& dtls, const std::source_location loc) noexcept
-{
-    if (l) { l->critical(std::move(dtls), loc); }
-}
-
-void log_debug(const Logger* const l, std::vector<LogField>&& dtls, const std::source_location loc) noexcept
-{
-    if (l) { l->debug(std::move(dtls), loc); }
-}
-
-void log_trace(const Logger* const l, std::vector<LogField>&& dtls, const std::source_location loc) noexcept
-{
-    if (l) { l->trace(std::move(dtls), loc); }
-}
-
-
-void log_using_retcode(http::retCode code, const Logger* const l, std::vector<LogField>&& dtls, std::source_location loc) noexcept
-{
-    if (!l) return;
-
     http::status s = http::to_http_status(code);
-    std::vector<LogField> dtls_base = {
+    std::vector<LogField> details_base = {
         logrr::field("retCode", code),
         logrr::field("retMesg", http::retMesg(code)),
         logrr::field("status", s),
         logrr::field("obsolete_reason", http::obsolete_reason(s))
     };
-    dtls_base.insert(dtls_base.end(), dtls.begin(), dtls.end());
-
-    l->log(code, std::move(dtls_base), loc);
+    details.insert(details.end(), details_base.begin(), details_base.end());
+    details_ = std::move(details);
 }
 
 
-void log_using_status(http::status status, const Logger* const l, std::vector<LogField>&& dtls, std::source_location loc) noexcept
-{
-    if (!l) return;
+LogStream::LogStream(
+    const Logger& logger, 
+    http::retCode code, 
+    std::source_location loc,
+    std::vector<LogField>&& details
+) : LogStream(logger, code, std::move(loc), "", std::move(details)) {}
 
-    std::vector<LogField> dtls_base = {
+
+LogStream::LogStream(
+    const Logger& logger, 
+    http::status status, 
+    std::source_location loc,
+    std::string_view msg, 
+    std::vector<LogField>&& details
+) : logger_(logger), level_(to_log_level(status)), loc_(std::move(loc)), msg_(msg) 
+{
+    std::vector<LogField> details_base = {
         logrr::field("status", status),
         logrr::field("obsolete_reason", http::obsolete_reason(status))
     };
-    dtls_base.insert(dtls_base.end(), dtls.begin(), dtls.end());
+    details.insert(details.end(), details_base.begin(), details_base.end());
+    details_ = std::move(details);
+}
 
-    l->log(status, std::move(dtls_base), loc);
+
+LogStream::LogStream(
+    const Logger& logger, 
+    http::status status, 
+    std::source_location loc,
+    std::vector<LogField>&& details
+) : LogStream(logger, status, std::move(loc), "", std::move(details)) {}
+
+
+LogStream::~LogStream()
+{
+    try {
+        if (!buffer_.empty()) {
+            fmt::dynamic_format_arg_store<fmt::format_context> store;
+            for (const auto& arg : buffer_) {
+                store.push_back(arg);
+            }
+            msg_ = fmt::vformat(msg_, store);
+        }
+        logger_.log(level_, msg_, std::move(details_), std::move(loc_));
+    } catch(const std::exception& msg) {
+        detail::print_error(msg.what());
+    } catch(...) {
+        detail::print_error("unknown error in LogStream::~LogStream");
+    }
+}
+
+std::unique_ptr<ISink> CreateSink(const YAML::Node& sink)
+{
+    if (!sink.IsMap() || sink.size() != 1) {
+        detail::print_error("Each sink entry must be a single-key mapping");
+        return nullptr;
+    }
+
+    auto item = sink.begin();
+    YAML::Node sink_name = item->first;
+    YAML::Node settings = item->second;
+
+    if (!sink_name.IsScalar()) {
+        detail::print_error("The name 'sink' is not a scalar");
+        return nullptr;
+    }
+
+    if (!settings.IsMap()) {
+        detail::print_error("The set of arguments is not presented as a dictionary");
+        return nullptr;
+    }
+    
+    const auto enabled = settings["enabled"];
+
+    if (!enabled || !enabled.IsScalar()) {
+        detail::print_error("'enabled' is missing or is not a scalar");
+        return nullptr;
+    }
+
+    if (!enabled.as<bool>()) {
+        return nullptr;
+    }
+
+    std::string name = sink_name.as<std::string>();
+    if (name == "console") return ConsoleSink::create(settings);
+    else if (name == "file") return FileSink::create(settings);
+
+    detail::print_error("There is no such sink: `", name, "`");
+    return nullptr;
+
+}
+
+
+std::optional<LogConfig> ParseLogConfig(std::string_view config_name)
+{
+    YAML::Node config;
+    try {
+        config = YAML::LoadFile(std::string(config_name));
+    } catch(const YAML::Exception& msg) {
+        detail::print_error(msg.what());
+        return std::nullopt;
+    }
+
+    if (!config["logging"] || !config["logging"].IsMap()) {
+        detail::print_error("'logging' is missing or is not a dictionary");
+        return std::nullopt;
+    }
+
+    if (!config["logging"]["level"] || !config["logging"]["level"].IsScalar()) {
+        detail::print_error("`level` is missing or is not a scalar");
+        return std::nullopt;
+    }
+
+    if (!config["logging"]["sinks"] || !config["logging"]["sinks"].IsSequence()) {
+        detail::print_error("`sinks` is missing or is not a sequence");
+        return std::nullopt;
+    } 
+
+    logrr::log_level level = logrr::to_log_level(config["logging"]["level"].as<std::string>());
+    if (level == log_level::unknown) {
+        detail::print_error("unknown logging level");
+        return std::nullopt;
+    }
+
+    std::vector<std::shared_ptr<ISink>> sinks;
+    for (const auto& sink : config["logging"]["sinks"]) {
+        if (auto created = CreateSink(sink)) {
+            sinks.push_back(std::move(created));
+        }
+    }
+    
+    return LogConfig(level, std::move(sinks));
+}
+
+
+bool LogManager::Init(std::string_view config_name)
+{
+    std::optional<LogConfig> config = ParseLogConfig(config_name);
+    if (!config) { return false; }
+    try {
+        logger_ = std::make_unique<Logger>(std::move(*config));
+        return true;
+    } catch(const std::exception& msg) {
+        detail::print_error(msg.what());
+        return false;
+    }
+}
+
+
+bool LogManager::Init(LogConfig&& config) 
+{
+    try {
+        logger_ = std::make_unique<Logger>(std::move(config));
+        return true;
+    } catch(const std::exception& msg) {
+        detail::print_error(msg.what());
+        return false;
+    }
+}
+
+
+std::optional<std::reference_wrapper<Logger>> LogManager::Get() noexcept
+{
+    if (!logger_) {
+        return std::nullopt;
+    }
+    return std::ref(*logger_);
+}
+
+
+log_level LogManager::GetLevel() noexcept
+{
+    if (!logger_) {
+        return log_level::unknown;
+    }
+    return logger_->level();
+}
+
+
+void LogManager::ShutDown() noexcept
+{
+    logger_.reset();
+}
+
+
+bool ShouldLog(logrr::log_level level) noexcept
+{
+    log_level set_level = LogManager::GetLevel();
+
+    if (!static_cast<int>(set_level) || set_level > level) {
+        return false;
+    }
+    return true;
 }
 
 } // namespace logrr

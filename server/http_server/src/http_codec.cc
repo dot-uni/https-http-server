@@ -2,18 +2,13 @@
 
 namespace http {
 
-HttpCodec::HttpCodec(std::shared_ptr<logrr::Logger> logger) 
-    : logger_(std::move(logger)) {}
-
 std::optional<Request> HttpCodec::parse(std::string_view raw_req) 
 {
     Request req;
     int end_targets = raw_req.find("\r\n");
     int end_headers = raw_req.find("\r\n\r\n");
     if (end_targets == std::string::npos) {
-        logrr::log_warning(logger_.get(), {
-            logrr::field("message", "The request is not in the correct format")
-        });
+        LOG_WARN("The request is not in the correct format");
         return std::nullopt;
     }
 
@@ -24,9 +19,7 @@ std::optional<Request> HttpCodec::parse(std::string_view raw_req)
     int second_space = targets.find(' ', first_space+1);
     req.method = to_method(targets.substr(0, first_space));
     if (req.method == Method::UNKNOWN) {
-        logrr::log_warning(logger_.get(), {
-            logrr::field("message", "Incorrectly specified method <UNKNOWN>")
-        });
+        LOG_WARN("Incorrectly specified method <UNKNOWN>");
         return std::nullopt;
     }
     req.path = targets.substr(first_space+1, second_space-first_space-1);
@@ -38,9 +31,7 @@ std::optional<Request> HttpCodec::parse(std::string_view raw_req)
     int beg = 0;
     int end = headers.find("\r\n"), colon;
     if (end == std::string::npos) {
-        logrr::log_warning(logger_.get(), {
-            logrr::field("message", "The header field is missing from the request")
-        });
+        LOG_WARN("The header field is missing from the request");
         return std::nullopt;
     }
 
@@ -66,9 +57,7 @@ std::optional<Request> HttpCodec::parse(std::string_view raw_req)
         if (end == std::string::npos) break;
     }
     if (!req.headers.count("Host")) {
-        logrr::log_warning(logger_.get(), {
-            logrr::field("message", "Host is not specified in header")
-        });
+        LOG_WARN("Host is not specified in header");
         return std::nullopt;
     }
 
@@ -80,9 +69,7 @@ std::optional<Request> HttpCodec::parse(std::string_view raw_req)
                 req.body = nlohmann::json::parse(body); 
             }
         } catch(nlohmann::json::parse_error& mess) {
-            logrr::log_warning(logger_.get(), {
-                logrr::field("message", mess.what())
-            });
+            LOG_WARN(mess.what());
             return std::nullopt;
         }
     }
@@ -128,7 +115,7 @@ std::string HttpCodec::process(std::string_view raw_req, const IRouter& router) 
     else {
         resp = router.match(std::move(req_)); 
     }
-    logrr::log_using_status(resp.status, logger_.get(), {
+    LOG_USING_STATUS(resp.status, {
         logrr::field("method", to_string(req_.method)),
         logrr::field("path", req_.path)
     });

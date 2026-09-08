@@ -3,6 +3,9 @@
 #include <spdlog/spdlog.h>
 #include "logging.h"
 
+
+/// There are no benchmarks yet
+#if 0
 constexpr std::string_view kMessage =
     "[2026-09-03 23:00:10] [INFO] source.cc:(21:5) test message";
 
@@ -37,3 +40,4 @@ static void BM_logrr(benchmark::State& state) {
     }
 }
 BENCHMARK(BM_logrr)->Iterations(1'000'000);
+#endif
