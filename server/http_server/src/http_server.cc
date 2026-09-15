@@ -2,7 +2,7 @@
 
 namespace http {
 
-HttpServer::HttpServer(IRouter& router) : router_(router)
+HttpServer::HttpServer()
 {
     memset(&hints_, 0, sizeof(hints_));
     hints_.ai_family = AF_UNSPEC;
@@ -211,7 +211,7 @@ void HttpServer::clientIntakeCycle(int bufsize) noexcept
         });
         
         HttpConnection connection(client, bufsize);
-        connection.process(router_);
+        connection.process();
     }
 }
 

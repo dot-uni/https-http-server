@@ -4,9 +4,8 @@ namespace https {
 
 HttpsServer::HttpsServer(
     const std::string& cert, 
-    const std::string& key, 
-    http::IRouter& router
-) : http::HttpServer(router)
+    const std::string& key
+) 
 {
     LOG_DEBUG("Initializing TLS context");
 
@@ -101,7 +100,7 @@ void HttpsServer::clientIntakeCycle(int bufsize) noexcept
         });
 
         HttpsConnection connection(ssl, client, bufsize);
-        connection.process(this->router_);
+        connection.process();
     }
 }
 

@@ -19,10 +19,9 @@ public:
 class HttpsServer : public http::HttpServer
 {
 public:
-    HttpsServer(
+    HttpsServer (
         const std::string& cert, 
-        const std::string& key, 
-        http::IRouter& router
+        const std::string& key
     );
     virtual ~HttpsServer();
 protected:

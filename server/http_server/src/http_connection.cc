@@ -27,14 +27,14 @@ HttpConnection::~HttpConnection()
 }
 
 
-bool HttpConnection::process(const IRouter& router) 
+bool HttpConnection::process() 
 {
     LOG_TRACE("Processing new request", {
         logrr::field("client_id", client_.id)
     });
 
     if (!HttpConnection::recv()) return false;
-    std::string resp = execution(router);
+    std::string resp = execution();
     return HttpConnection::send(resp);
 }
 
@@ -91,14 +91,14 @@ bool HttpConnection::recv() noexcept
 }
 
 
-std::string HttpConnection::execution(const IRouter& router) noexcept 
+std::string HttpConnection::execution() noexcept 
 {
     LOG_TRACE("Routing request", {
         logrr::field("client_id", client_.id)
     });
 
     HttpCodec codec;
-    std::string resp = codec.process(req_, router); 
+    std::string resp = codec.process(req_); 
     return resp;
 
     LOG_TRACE("Response generated", {

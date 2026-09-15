@@ -1,6 +1,7 @@
 add_library(http_server STATIC
     src/uuid.cc
     src/crypto.cc
+    src/router.cc
     src/http_codec.cc
     src/http_message.cc
     src/http_connection.cc

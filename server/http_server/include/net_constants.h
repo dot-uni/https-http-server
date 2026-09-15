@@ -10,7 +10,6 @@ inline constexpr uint16_t kReceptionBufSize = 1024;
 inline constexpr uint16_t kReceptionBufLimit = 8*kReceptionBufSize;
 inline constexpr bool kInvalidSocket = -1;
 inline constexpr bool kEmptyDescriptor = 0;
-inline constexpr size_t kNumHTTPMethods = 5;
 
 } // namespace http
 

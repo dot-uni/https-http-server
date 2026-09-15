@@ -18,14 +18,24 @@ std::optional<SipHashKey> make_siphash_key()
 }
 
 
-SipHasher::SipHasher(const SipHashKey& key) : key_(key)
+std::shared_ptr<SipHashKey> make_siphash_key_ptr()
+{
+    auto key = std::make_shared<SipHashKey>();
+    if (RAND_bytes(key->data(), static_cast<int>(key->size())) != 1) {
+        return nullptr;
+    }
+    return key;
+}
+
+
+SipHash::SipHash(std::shared_ptr<SipHashKey> key) : key_(std::move(key))
 {
     ctx_ = make_ctx();
     if (!ctx_) throw std::runtime_error("The context was not created");
 }
 
 
-SipHasher::SipHasher(const SipHasher& h)
+SipHash::SipHash(const SipHash& h)
 {
     key_ = h.key_;
     ctx_ = make_ctx();
@@ -33,14 +43,14 @@ SipHasher::SipHasher(const SipHasher& h)
 }
 
 
-SipHasher::SipHasher(SipHasher&& h) 
+SipHash::SipHash(SipHash&& h) 
 {
     ctx_ = std::move(h.ctx_);
     key_ = std::move(h.key_);
 }
 
 
-SipHasher& SipHasher::operator=(const SipHasher& h)
+SipHash& SipHash::operator=(const SipHash& h)
 {
     if (&h == this) return *this;
 
@@ -52,7 +62,7 @@ SipHasher& SipHasher::operator=(const SipHasher& h)
 }
 
 
-SipHasher& SipHasher::operator=(SipHasher&& h)
+SipHash& SipHash::operator=(SipHash&& h)
 {
     if (&h == this) return *this;
     ctx_ = std::move(h.ctx_);
@@ -61,14 +71,14 @@ SipHasher& SipHasher::operator=(SipHasher&& h)
 }
 
 
-std::optional<SipHashTag> SipHasher::hash(std::string_view msg) const noexcept
+std::optional<SipHashTag> SipHash::fhash(std::string_view v) const noexcept
 {
     SipHashTag tag{};
 
     size_t tag_size = 0;
     bool ok = 
-        EVP_MAC_init(ctx_.get(), key_.data(), key_.size(), nullptr) == 1 &&
-        EVP_MAC_update(ctx_.get(), reinterpret_cast<const unsigned char*>(msg.data()), msg.size()) == 1 &&
+        EVP_MAC_init(ctx_.get(), (*key_).data(), (*key_).size(), nullptr) == 1 &&
+        EVP_MAC_update(ctx_.get(), reinterpret_cast<const unsigned char*>(v.data()), v.size()) == 1 &&
         EVP_MAC_final(ctx_.get(), tag.data(), &tag_size, tag.size()) == 1 &&
         tag_size == tag.size();
     if (!ok) {
@@ -78,7 +88,23 @@ std::optional<SipHashTag> SipHasher::hash(std::string_view msg) const noexcept
 }
 
 
-CTX_Pointer SipHasher::make_ctx()
+std::optional<std::vector<unsigned char>> SipHash::hash(std::string_view v) const noexcept
+{
+    auto tag = fhash(v);
+    if (!tag) {
+        return std::nullopt;
+    }
+    return std::vector<unsigned char>(tag->begin(), tag->end());
+}
+
+
+std::unique_ptr<Hash<SipHash>> SipHash::clone() const
+{
+    return std::make_unique<SipHash>(*this);
+}
+
+
+CTX_Pointer SipHash::make_ctx()
 {
     EVP_MAC* mac = EVP_MAC_fetch(nullptr, "SIPHASH", nullptr);
     if (!mac) { return nullptr; }
@@ -97,11 +123,10 @@ CTX_Pointer SipHasher::make_ctx()
         return nullptr;
     }
     return ctx;
-
 }
 
 
-void SipHasher::swap(SipHasher& h)
+void SipHash::swap(SipHash& h)
 {
     std::swap(ctx_, h.ctx_);
     std::swap(key_, h.key_);

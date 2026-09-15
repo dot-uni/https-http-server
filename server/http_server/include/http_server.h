@@ -67,7 +67,7 @@ namespace http {
 class HttpServer 
 {
 public:
-    explicit HttpServer(IRouter& router);
+    explicit HttpServer();
     virtual ~HttpServer();
     HttpServer(HttpServer&& serv) = delete;
     HttpServer(const HttpServer&) = delete;
@@ -99,7 +99,6 @@ protected:
     addrinfo hints_;
     bool is_running_ = false;
     std::mutex mtx_;
-    IRouter& router_;
 };
 
 inline bool HttpServer::listen() { return listen("0.0.0.0"); }

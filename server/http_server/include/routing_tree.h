@@ -5,48 +5,43 @@
 #include <vector>
 #include <unordered_map>
 #include <optional>
+#include <type_traits>
 
 #include "http_message.h"
 #include "crypto.h"
-#include "net_constants.h"
 
 
 namespace http {
+
+static constexpr size_t kDefaultBucketCount = 10;
+static constexpr size_t kNumHTTPMethods = 5;
 
 using Handler = std::function<Response(Request&&)>;
 
 
 template <
-    typename Hasher = cryp::SipHasher,
     typename HashKey = cryp::SipHashKey,
-    typename Hash = cryp::Hash<Hasher, HashKey>
->
-class RoutingTree final
+    typename Hash = cryp::SipHash
+> class RoutingTree final
 {
     struct RoutingNode;
     using HashMap = std::unordered_map<std::string, RoutingNode, Hash, std::equal_to<>>;
-    using RootRoutingTree = std::array<HashMap, http::kNumHTTPMethods>;
+    using RootRoutingTree = std::array<HashMap, kNumHTTPMethods>;
 
     struct RoutingNode
     {
         Handler h;
         HashMap hm;
 
-        explicit RoutingNode(const Hash& hasher, Handler handler = nullptr)
+        explicit RoutingNode(const std::shared_ptr<HashKey>& key, Handler&& handler = nullptr)
             : h(std::move(handler))
-            , hm(kDefaultBucketCount, hasher)
+            , hm(kDefaultBucketCount, Hash(key)) 
         {}
     };
-
-    static constexpr size_t kDefaultBucketCount = 10;
-
 public:
-    explicit RoutingTree(const HashKey& key)
-        : key_(key)
-        , hash_(key_)
-        , root_(make_root(hash_))
-    {}
-    explicit RoutingTree() : RoutingTree(*cryp::make_hash_key<std::tuple_size_v<HashKey>>()) {}
+    RoutingTree() : RoutingTree(std::make_shared<typename Hash::Key>()) {}
+    template <size_t N> RoutingTree(const std::array<unsigned char, N>& key) :  RoutingTree(std::make_shared<std::array<unsigned char, N>>(key)) {}
+    RoutingTree(std::shared_ptr<HashKey> key);
 
     RoutingTree(const RoutingTree&) = delete;
     RoutingTree& operator=(const RoutingTree&) = delete;
@@ -56,32 +51,33 @@ public:
 
     ~RoutingTree() = default;
 
-    bool add(http::Method mtd, std::string_view path, Handler h);
+    bool add(http::Method mtd, std::string_view path, Handler&& h);
     Handler get(http::Method mtd, std::string_view path) const noexcept;
-
 private:
     template <size_t... I>
-    static RootRoutingTree make_root_impl(const Hash& hasher, std::index_sequence<I...>)
+    static RootRoutingTree make_root_impl(const std::shared_ptr<HashKey>& key, std::index_sequence<I...>)
     {
-        return RootRoutingTree{ ((void)I, HashMap(kDefaultBucketCount, hasher))... };
+        return RootRoutingTree{ ((void)I, HashMap(kDefaultBucketCount, Hash(key)))... };
     }
 
-    static RootRoutingTree make_root(const Hash& hasher)
+    static RootRoutingTree make_root(const std::shared_ptr<HashKey>& key)
     {
-        return make_root_impl(hasher, std::make_index_sequence<http::kNumHTTPMethods>{});
+        return make_root_impl(key, std::make_index_sequence<http::kNumHTTPMethods>{});
     }
 
-    bool set_elem(HashMap& map, std::string_view elem, Handler h);
-
+    bool set_elem(HashMap& map, std::string_view elem, Handler&& h);
 private:
-    HashKey key_;
-    Hash hash_;
+    std::shared_ptr<HashKey> key_;
     RootRoutingTree root_;
 };
 
 
-template <typename Hasher, typename HashKey, typename Hash>
-bool RoutingTree<Hasher, HashKey, Hash>::add(http::Method mtd, std::string_view path, Handler h)
+template <typename HashKey, typename Hash>
+RoutingTree<HashKey, Hash>::RoutingTree(std::shared_ptr<HashKey> key) : key_(std::move(key)), root_(make_root(key_)) {}
+
+
+template <typename HashKey, typename Hash>
+bool RoutingTree<HashKey, Hash>::add(http::Method mtd, std::string_view path, Handler&& h)
 {
     size_t idx = static_cast<size_t>(mtd);
     if (idx >= root_.size()) return false; 
@@ -113,7 +109,7 @@ bool RoutingTree<Hasher, HashKey, Hash>::add(http::Method mtd, std::string_view 
                     target_map = &it->second.hm; 
                 } else {
                     auto [new_it, inserted] = target_map->try_emplace(
-                        std::string(elem), hash_, Handler{nullptr});
+                        std::string(elem), key_, Handler{nullptr});
                     target_map = &new_it->second.hm;
                 }
 
@@ -128,8 +124,8 @@ bool RoutingTree<Hasher, HashKey, Hash>::add(http::Method mtd, std::string_view 
 }
 
 
-template <typename Hasher, typename HashKey, typename Hash>
-Handler RoutingTree<Hasher, HashKey, Hash>::get(http::Method mtd, std::string_view path) const noexcept
+template <typename HashKey, typename Hash>
+Handler RoutingTree<HashKey, Hash>::get(http::Method mtd, std::string_view path) const noexcept
 {
     size_t idx = static_cast<size_t>(mtd);
     if (idx >= root_.size()) return nullptr; 
@@ -177,18 +173,22 @@ Handler RoutingTree<Hasher, HashKey, Hash>::get(http::Method mtd, std::string_vi
 }
 
 
-template <typename Hasher, typename HashKey, typename Hash>
-bool RoutingTree<Hasher, HashKey, Hash>::set_elem(HashMap& map, std::string_view elem, Handler h)
+template <typename HashKey, typename Hash>
+bool RoutingTree<HashKey, Hash>::set_elem(HashMap& map, std::string_view elem, Handler&& h)
 {
     auto it = map.find(elem);
     if (it != map.end()) {
         RoutingNode& rnode = it->second;
-        if (rnode.h) return false;
+
+        if (rnode.h) {
+            return false;
+        }
+        
         rnode.h = std::move(h);
         return true;
     }
 
-    map.try_emplace(std::string(elem), hash_, std::move(h));
+    map.try_emplace(std::string(elem), key_, std::move(h));
     return true;
 }
 

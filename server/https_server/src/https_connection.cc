@@ -35,14 +35,14 @@ HttpsConnection::~HttpsConnection()
 }
 
 
-bool HttpsConnection::process(const http::IRouter& router) 
+bool HttpsConnection::process() 
 {
     LOG_TRACE("Processing new HTTPS request", {
         logrr::field("client_id", this->client_.id)
     });
 
     if (!HttpsConnection::recv()) return false;
-    std::string resp = this->execution(router);
+    std::string resp = this->execution();
     return HttpsConnection::send(resp);
 }
 

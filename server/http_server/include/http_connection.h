@@ -31,11 +31,11 @@ public:
         int bufsize=kReceptionBufSize
     );
     virtual ~HttpConnection();
-    virtual bool process(const IRouter& router);
+    virtual bool process();
 protected:
     virtual bool recv() noexcept;
     virtual bool send(const std::string&) noexcept;
-    std::string execution(const IRouter& router) noexcept;
+    std::string execution() noexcept;
     void closeConnection(int& sockfd) noexcept;
 protected:
     ClientConnection client_; 

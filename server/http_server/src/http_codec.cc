@@ -129,20 +129,28 @@ bool HttpCodec::parse_w(std::string_view raw_req)
 }
 
 
-std::string HttpCodec::process(std::string_view raw_req, const IRouter& router) {
-    Response resp;
+std::string HttpCodec::process(std::string_view raw_req) {
+    std::optional<Response> resp;
     if (!parse_w(raw_req)) {
         LOG_DEBUG("Request parsing failed, returning error response");
         resp = makeResp(retCode::InvalidJsonOrParams);
     }
     else {
-        resp = router.match(std::move(req_)); 
+        resp = RouterManager::Route(req_);
+
+        if (!resp) {
+            LOG_CRIT("Router not initialized", {
+                logrr::field("method", to_string(req_.method)),
+                logrr::field("path", req_.path)
+            });
+            resp = makeResp(retCode::InternalError);
+        }
     }
-    LOG_USING_STATUS(resp.status, {
+    LOG_USING_STATUS(resp->status, {
         logrr::field("method", to_string(req_.method)),
         logrr::field("path", req_.path)
     });
-    return HttpCodec::serialize(resp);
+    return HttpCodec::serialize(*resp);
 }
 
 } // namespace http

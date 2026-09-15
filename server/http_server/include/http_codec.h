@@ -23,7 +23,7 @@ public:
     HttpCodec() = default;
     virtual ~HttpCodec() = default;
 
-    std::string process(std::string_view raw_req, const IRouter& router);
+    std::string process(std::string_view raw_req);
     std::optional<Request> parse(std::string_view raw_req);
     static std::string serialize(Response& resp) noexcept;
 protected:

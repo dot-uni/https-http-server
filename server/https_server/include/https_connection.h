@@ -17,7 +17,7 @@ public:
         int bufsize=http::kReceptionBufSize
     );
     virtual ~HttpsConnection();
-    bool process(const http::IRouter& router) override;
+    bool process() override;
 protected:
     bool recv() noexcept override;
     bool send(const std::string&) noexcept override;

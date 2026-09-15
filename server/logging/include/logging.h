@@ -245,11 +245,6 @@ public:
 private:
     Logger logger_;
     LogInfo linfo_;
-
-    // log_level level_;
-    // std::source_location loc_;
-    // std::string msg_ = "";
-    // std::vector<LogField> details_;
     std::vector<std::string> buffer_;
 };
 

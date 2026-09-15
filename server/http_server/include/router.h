@@ -9,88 +9,147 @@
 #include "routing_tree.h"
 #include "ret_status.h" 
 #include "crypto.h"
+#include "logging.h"
 
 
 namespace http {
 
-class IRouter
+
+class RouterBase
 {
 public:
-    virtual ~IRouter() = default;
-    virtual Response match(Request&& req) const noexcept = 0;
+    virtual ~RouterBase() = default;
+
+    virtual bool get(std::string_view path, Handler&& h) noexcept = 0;
+    virtual bool post(std::string_view path, Handler&& h) noexcept = 0;
+    virtual bool put(std::string_view path, Handler&& h) noexcept = 0;
+    virtual bool del(std::string_view path, Handler&& h) noexcept = 0;
+    virtual bool patch(std::string_view path, Handler&& h) noexcept = 0;
+
+    virtual std::optional<Response> route(Request req) const noexcept = 0;
 };
 
 
 template <
-    typename Hasher = cryp::SipHasher,
     typename HashKey = cryp::SipHashKey,
-    typename Hash = cryp::Hash<Hasher, HashKey>
-> class Router final : public IRouter {
+    typename Hash = cryp::SipHash
+> class Router final : public RouterBase {
 public:
     Router() = default;
-    Router(const HashKey& key);
+    Router(const HashKey& key) : rtree_(key) {}
     ~Router() = default;
 
-    bool get(std::string_view path, Handler&& h) noexcept;
-    bool post(std::string_view path, Handler&& h) noexcept;
-    bool put(std::string_view path, Handler&& h) noexcept;
-    bool del(std::string_view path, Handler&& h) noexcept;
-    bool patch(std::string_view path, Handler&& h) noexcept;
+    Router(const Router&) = delete;
+    Router& operator=(const Router&) = delete;
 
-    Response match(Request&& req) const noexcept override;
+    Router(Router&&) noexcept = default;
+    Router& operator=(Router&&) noexcept = default;
+
+    bool get(std::string_view path, Handler&& h) noexcept override;
+    bool post(std::string_view path, Handler&& h) noexcept override;
+    bool put(std::string_view path, Handler&& h) noexcept override;
+    bool del(std::string_view path, Handler&& h) noexcept override;
+    bool patch(std::string_view path, Handler&& h) noexcept override;
+
+    std::optional<Response> route(Request req) const noexcept override;
 private:
-    RoutingTree<Hasher, HashKey, Hash> rtree_;
+    RoutingTree<HashKey, Hash> rtree_;
 };
 
 
-template <typename Hasher, typename HashKey, typename Hash>
-Router<Hasher, HashKey, Hash>::Router(const HashKey& key) : rtree_(key) {}
-
-
-template <typename Hasher, typename HashKey, typename Hash>
-bool Router<Hasher, HashKey, Hash>::get(std::string_view path, Handler&& h) noexcept
+template <typename HashKey, typename Hash>
+bool Router<HashKey, Hash>::get(std::string_view path, Handler&& h) noexcept
 {
     return rtree_.add(Method::GET, path, std::move(h));
 }
 
 
-template <typename Hasher, typename HashKey, typename Hash>
-bool Router<Hasher, HashKey, Hash>::post(std::string_view path, Handler&& h) noexcept
+template <typename HashKey, typename Hash>
+bool Router<HashKey, Hash>::post(std::string_view path, Handler&& h) noexcept
 {
     return rtree_.add(Method::POST, path, std::move(h));
 }
 
 
-template <typename Hasher, typename HashKey, typename Hash>
-bool Router<Hasher, HashKey, Hash>::put(std::string_view path, Handler&& h) noexcept
+template <typename HashKey, typename Hash>
+bool Router<HashKey, Hash>::put(std::string_view path, Handler&& h) noexcept
 {
     return rtree_.add(Method::PUT, path, std::move(h));
 }
 
 
-template <typename Hasher, typename HashKey, typename Hash>
-bool Router<Hasher, HashKey, Hash>::del(std::string_view path, Handler&& h) noexcept
+template <typename HashKey, typename Hash>
+bool Router<HashKey, Hash>::del(std::string_view path, Handler&& h) noexcept
 {
     return rtree_.add(Method::DELETE, path, std::move(h));
 }
 
 
-template <typename Hasher, typename HashKey, typename Hash>
-bool Router<Hasher, HashKey, Hash>::patch(std::string_view path, Handler&& h) noexcept
+template <typename HashKey, typename Hash>
+bool Router<HashKey, Hash>::patch(std::string_view path, Handler&& h) noexcept
 {
     return rtree_.add(Method::PATCH, path, std::move(h));
 }
 
 
-template <typename Hasher, typename HashKey, typename Hash>
-Response Router<Hasher, HashKey, Hash>::match(Request&& req) const noexcept 
+template <typename HashKey, typename Hash>
+std::optional<Response> Router<HashKey, Hash>::route(Request req) const noexcept 
 {
     Handler h = rtree_.get(req.method, req.path);
     if (!h) {
-        return makeResp(retCode::NotFound, req.id);
+        return std::nullopt;
     }
     Response resp = h(std::move(req));
     return resp;
+}
+
+
+class RouterManager final
+{
+public:
+    template <
+        typename HashKey = cryp::SipHashKey,
+        typename Hash = cryp::SipHash
+    > static void Init();
+
+    template <
+        typename HashKey = cryp::SipHashKey,
+        typename Hash = cryp::SipHash
+    > static void Init(const HashKey& key);
+
+    static void Clear() noexcept;
+
+    static bool Get(std::string_view path, Handler h);
+    static bool Post(std::string_view path, Handler h);
+    static bool Put(std::string_view path, Handler h);
+    static bool Del(std::string_view path, Handler h);
+    static bool Patch(std::string_view path, Handler h);
+    
+    static std::optional<Response> Route(const Request& req) noexcept;
+private:
+    inline static std::unique_ptr<RouterBase> router_ = nullptr;
+};
+
+
+template <typename HashKey, typename Hash> 
+void RouterManager::Init()
+{
+    if (router_) {
+        LOG_WARN("Router already initialized, replacing existing instance");
+    }
+    LOG_DEBUG("Initializing router with default hash key");
+    router_ = std::make_unique<Router<HashKey, Hash>>();
+}
+
+
+template <typename HashKey, typename Hash> 
+void RouterManager::Init(const HashKey& key)
+{
+    if (router_) {
+        LOG_WARN("Router already initialized, replacing existing instance");
+    }
+    LOG_DEBUG("Initializing router with provided hash key");
+    router_ = std::make_unique<Router<HashKey, Hash>>(key);
 }
 
 } // namespace http

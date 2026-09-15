@@ -36,14 +36,15 @@ std::string ConsoleFormat(const LogInfo& i) noexcept
         base = fmt::format(R"([{}] [{}] {}:({}:{}) "{}")", 
             i.timepoint, colored_reason(i.status), i.loc.file_name(), i.loc.line(), i.loc.column(), i.info);
 
-        if (i.details.size()) {
+        if (!i.details.empty()) {
             base += fmt::format(" details:\n");
-        }
 
-        std::for_each(i.details.begin(), i.details.end(), [&base](const auto& detail){
-            base += fmt::format("\t- {}: \"{}\"\n", detail.first, detail.second);
-        });
-        base.pop_back();
+            std::for_each(i.details.begin(), i.details.end(), [&base](const auto& detail){
+                base += fmt::format("\t- {}: \"{}\"\n", detail.first, detail.second);
+            });
+
+            base.pop_back();
+        }
     } catch(fmt::format_error& mess) {
         detail::print_error(mess.what());
     }
