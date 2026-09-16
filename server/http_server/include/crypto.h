@@ -71,11 +71,6 @@ public:
     
     virtual ~Hash() = default;
 
-    Hash(const Hash&) = delete;
-    Hash(Hash&&) = delete;
-    Hash& operator=(const Hash&) = delete;
-    Hash& operator=(Hash&&) = delete;
-
     [[nodiscard]] virtual std::optional<std::vector<unsigned char>> hash(std::string_view) const noexcept = 0;
     [[nodiscard]] virtual std::unique_ptr<Hash> clone() const = 0;
 

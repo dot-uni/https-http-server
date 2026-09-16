@@ -4,3 +4,4 @@ server.log
 crypto-simulation-api*
 log_*
 *.pem
+.DS_Store
