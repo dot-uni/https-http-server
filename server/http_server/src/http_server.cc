@@ -198,9 +198,9 @@ bool HttpServer::listenInternal(int max_connections, int bufsize) noexcept
 
 void HttpServer::clientIntakeCycle(int bufsize) noexcept 
 {
-    ClientConnection client;
+    pid_t pid;
     while(true) {
-        client = acceptConnection();
+        ClientConnection client = acceptConnection();
         if (client.sockfd == kInvalidSocket) {
             LOG_WARN("Skipping invalid client connection");
             continue;
@@ -210,8 +210,13 @@ void HttpServer::clientIntakeCycle(int bufsize) noexcept
             logrr::field("client_id", client.id)
         });
         
-        HttpConnection connection(client, bufsize);
-        connection.process();
+
+        if ((pid = fork()) == 0) {
+            close(sockfd_);
+            HttpConnection connection(std::move(client), bufsize);
+            connection.process();
+            exit(0);
+        }
     }
 }
 

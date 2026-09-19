@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 
 i=0
-while (( i < 1000 )); do 
+while (( i < 500 )); do 
     (
     printf "GET / HTTP/1.1\r\n"
     printf "Host: example.com\r\n"

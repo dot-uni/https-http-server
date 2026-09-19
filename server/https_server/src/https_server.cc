@@ -81,9 +81,8 @@ HttpsServer::~HttpsServer()
 
 void HttpsServer::clientIntakeCycle(int bufsize) noexcept 
 {
-    http::ClientConnection client;
     while(true) {
-        client = this->acceptConnection();
+        http::ClientConnection client = this->acceptConnection();
         if (client.sockfd == http::kInvalidSocket) {
             LOG_WARN("Skipping invalid client connection");
             continue;
@@ -99,7 +98,7 @@ void HttpsServer::clientIntakeCycle(int bufsize) noexcept
             logrr::field("client_id", client.id)
         });
 
-        HttpsConnection connection(ssl, client, bufsize);
+        HttpsConnection connection(ssl, std::move(client), bufsize);
         connection.process();
     }
 }

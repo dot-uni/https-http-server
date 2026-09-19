@@ -4,9 +4,9 @@ namespace https {
 
 HttpsConnection::HttpsConnection(
     SSL* ssl,
-    const http::ClientConnection& client, 
+    http::ClientConnection&& client, 
     int bufsize
-) : http::HttpConnection(client, bufsize), ssl_(ssl) 
+) : http::HttpConnection(std::move(client), bufsize), ssl_(ssl) 
 {
     LOG_DEBUG("New HttpsConnection created", {
         logrr::field("client_id", client.id),

@@ -3,7 +3,7 @@
 namespace http {
     
 HttpConnection::HttpConnection(
-    ClientConnection client, 
+    ClientConnection&& client, 
     int bufsize
 ) : client_(std::move(client)), bufsize_(bufsize) 
 {

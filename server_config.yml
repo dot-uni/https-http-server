@@ -1,0 +1,49 @@
+server:
+  host: localhost
+  port: 8080
+  max_connections: 20        # backlog для listen()
+  worker_threads: 4          # если будете обрабатывать клиентов в пуле потоков
+
+  tls:
+    enabled: true
+    cert_file: /etc/ssl/certs/server.crt
+    key_file: /etc/ssl/private/server.key
+
+  socket:
+    reuse_addr: true         # SO_REUSEADDR
+    reuse_port: false        # SO_REUSEPORT
+    tcp_nodelay: true        # TCP_NODELAY (отключить алгоритм Нейгла)
+    keep_alive: true         # SO_KEEPALIVE
+    keep_alive_idle_sec: 60  # TCP_KEEPIDLE
+    linger_enabled: false    # SO_LINGER
+    linger_sec: 0
+    recv_buffer_size: 65536  # SO_RCVBUF (буфер ядра)
+    send_buffer_size: 65536  # SO_SNDBUF
+
+  timeouts:
+    recv_ms: 5000              # SO_RCVTIMEO / таймаут чтения запроса
+    send_ms: 5000              # SO_SNDTIMEO
+    idle_ms: 30000             # закрывать неактивные соединения
+    keep_alive_ms: 15000       # время жизни keep-alive соединения
+
+  buffers:
+    reception_buf_size: 1024   # kReceptionBufSize, размер одного recv()
+    reception_buf_limit: 8192  # kReceptionBufLimit, максимальный размер накопленного запроса
+
+  http_limits:
+    max_request_line: 4096  # длина стартовой строки (метод + URI + версия)
+    max_header_size: 8192   # суммарный размер заголовков
+    max_headers_count: 100  
+    max_body_size: 1048576  
+
+logging:
+  level: trace
+  sinks:
+    - console:
+        enabled: true
+        format: console
+    - file:
+        enabled: true
+        format: json
+        path: ""
+  

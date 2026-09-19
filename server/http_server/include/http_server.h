@@ -5,6 +5,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <errno.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -69,10 +70,12 @@ class HttpServer
 public:
     explicit HttpServer();
     virtual ~HttpServer();
-    HttpServer(HttpServer&& serv) = delete;
+
     HttpServer(const HttpServer&) = delete;
-    HttpServer& operator=(HttpServer&& serv) = delete;
     HttpServer& operator=(const HttpServer&) = delete;
+
+    HttpServer(HttpServer&& serv) = delete;
+    HttpServer& operator=(HttpServer&& serv) = delete;
 
     bool listen();
     bool listen(

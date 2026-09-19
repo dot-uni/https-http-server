@@ -15,19 +15,40 @@
 
 namespace http {
 
-struct ClientConnection 
+class ClientConnection final
 {
+public:
     std::string id;
     int sockfd = kInvalidSocket;
     std::string ip = "";
     uint16_t port = 0;
+    
+    ClientConnection() = default;
+    ClientConnection(
+        std::string_view id_, 
+        int sockfd_,
+        std::string ip_,
+        uint16_t port_
+    ) : id(id_), sockfd(sockfd_), ip(ip_), port(port_) {}
+
+    ClientConnection(const ClientConnection&) = delete;
+    ClientConnection& operator=(const ClientConnection&) = delete;
+
+    ClientConnection(ClientConnection&&) = default;
+    ClientConnection& operator=(ClientConnection&&) = default;
+
+    ~ClientConnection() {
+        if (sockfd > 0) {
+            close(sockfd);
+        }
+    }
 };
 
 
 class HttpConnection {
 public:
     HttpConnection(
-        ClientConnection client, 
+        ClientConnection&& client, 
         int bufsize=kReceptionBufSize
     );
     virtual ~HttpConnection();

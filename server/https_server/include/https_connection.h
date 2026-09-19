@@ -13,7 +13,7 @@ class HttpsConnection : public http::HttpConnection
 public:
     HttpsConnection(
         SSL* ssl,
-        const http::ClientConnection& client, 
+        http::ClientConnection&& client, 
         int bufsize=http::kReceptionBufSize
     );
     virtual ~HttpsConnection();
