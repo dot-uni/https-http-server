@@ -1,0 +1,11 @@
+logging:
+  level: trace
+  sinks:
+    - console:
+        enabled: true
+        format: console
+    - file:
+        enabled: true
+        format: json
+        path: ""
+  # refresh_rate: 5 # в секундах

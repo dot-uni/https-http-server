@@ -2,6 +2,6 @@ build/
 benchmark/
 server.log
 crypto-simulation-api*
-log_*
+log_20*
 *.pem
 .DS_Store
