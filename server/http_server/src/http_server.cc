@@ -213,8 +213,10 @@ void HttpServer::clientIntakeCycle(int bufsize) noexcept
 
         if ((pid = fork()) == 0) {
             close(sockfd_);
-            HttpConnection connection(std::move(client), bufsize);
-            connection.process();
+            {
+                HttpConnection connection(std::move(client), bufsize);
+                connection.process();
+            }
             exit(0);
         }
     }

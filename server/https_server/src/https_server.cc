@@ -99,8 +99,17 @@ void HttpsServer::clientIntakeCycle(int bufsize) noexcept
             logrr::field("client_id", client.id)
         });
 
-        HttpsConnection connection(ssl, std::move(client), bufsize);
-        connection.process();
+        if ((pid = fork()) == 0) {
+            close(this->sockfd_);
+            {
+                HttpsConnection connection(ssl, std::move(client), bufsize);
+                connection.process();
+            }
+            exit(0);
+        }
+
+        // HttpsConnection connection(ssl, std::move(client), bufsize);
+        // connection.process();
     }
 }
 
