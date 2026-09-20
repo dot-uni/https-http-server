@@ -8,10 +8,11 @@ HttpsConnection::HttpsConnection(
     int bufsize
 ) : http::HttpConnection(std::move(client), bufsize), ssl_(ssl) 
 {
-    LOG_DEBUG("New HttpsConnection created", {
-        logrr::field("client_id", client.id),
-        logrr::field("client_ip", client.ip),
-        logrr::field("client_port", client.port)
+    LOG_TRACE("New HttpsConnection created", {
+        logrr::field("client_id", this->client_.id),
+        logrr::field("client_ip", this->client_.ip),
+        logrr::field("client_port", this->client_.port),
+        logrr::field("bufsize", bufsize)
     });
 }
 

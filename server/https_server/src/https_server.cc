@@ -81,6 +81,7 @@ HttpsServer::~HttpsServer()
 
 void HttpsServer::clientIntakeCycle(int bufsize) noexcept 
 {
+    pid_t pid;
     while(true) {
         http::ClientConnection client = this->acceptConnection();
         if (client.sockfd == http::kInvalidSocket) {
