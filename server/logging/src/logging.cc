@@ -393,13 +393,8 @@ bool LogManager::Init(std::string_view config_name)
 {
     std::optional<LogConfig> config = ParseLogConfig(config_name);
     if (!config) { return false; }
-    try {
-        logger_ = std::make_unique<Logger>(std::move(*config));
-        return true;
-    } catch(const std::exception& msg) {
-        detail::print_error(msg.what());
-        return false;
-    }
+    
+    return Init(std::move(*config));
 }
 
 

@@ -5,7 +5,7 @@ logging:
         enabled: true
         format: console
     - file:
-        enabled: true
+        enabled: false
         format: json
         path: ""
   # refresh_rate: 5 # в секундах

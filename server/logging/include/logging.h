@@ -24,6 +24,17 @@
 #include <nlohmann/json.hpp>
 #include <yaml-cpp/yaml.h>
 
+// #ifndef defined(__APPLE__) || defined(__linux__)
+
+// #include <sys/time.h>
+#ifdef __APPLE__
+#include <sys/event.h>
+#endif
+// #include <sys/types.h>
+
+// #endif 
+
+
 #include "tostring.h"
 #include "log_level.h"
 #include "status.h"
@@ -261,6 +272,14 @@ LogStream& LogStream::operator<<(const T& v)
 std::unique_ptr<ISink> CreateSink(const YAML::Node& sink);
 std::optional<LogConfig> ParseLogConfig(std::string_view config_name);
 
+
+// class ConfigWatcher 
+// {
+// public:
+
+// private:
+
+// };
 
 
 class LogManager final

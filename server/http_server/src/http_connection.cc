@@ -69,7 +69,7 @@ bool HttpConnection::recv() noexcept
             return false;
         }
 
-        buf[numbytes] = '\0';
+        // buf[numbytes] = '\0';
         req.append(buf);
 
         LOG_TRACE("`{}` bytes were received", {

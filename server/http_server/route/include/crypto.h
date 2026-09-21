@@ -13,6 +13,9 @@
 #include <cstring>
 #include <type_traits>
 #include <span>
+#include <memory>
+#include <vector>
+#include <stdexcept>
 
 #include "http_message.h"
 
@@ -146,7 +149,7 @@ class SipHash final : public Hash<SipHash>
 public:
     using Key = SipHashKey;
 
-    SipHash() : key_(make_siphash_key_ptr()) {}
+    SipHash() : ctx_(make_ctx()), key_(make_siphash_key_ptr()) {}
     explicit SipHash(std::shared_ptr<SipHashKey> key);
     SipHash(const SipHash&);
     SipHash(SipHash&&);

@@ -28,7 +28,7 @@ std::shared_ptr<SipHashKey> make_siphash_key_ptr()
 }
 
 
-SipHash::SipHash(std::shared_ptr<SipHashKey> key) : key_(std::move(key))
+SipHash::SipHash(std::shared_ptr<SipHashKey> key) : ctx_(make_ctx()), key_(std::move(key))
 {
     ctx_ = make_ctx();
     if (!ctx_) throw std::runtime_error("The context was not created");

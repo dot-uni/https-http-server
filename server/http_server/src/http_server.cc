@@ -78,7 +78,7 @@ bool HttpServer::buildSocket(const char* host, const char* port) noexcept
         }
 
         success = setSockOptions(sockfd, SO_REUSEADDR, SO_REUSEPORT);
-        if (success == -1) {
+        if (!success) {
             LOG_ERROR("Error from http::HttpServer::setSockOptions()", {
                 logrr::field("errno", errno),
                 logrr::field("strerror", strerror(errno))
