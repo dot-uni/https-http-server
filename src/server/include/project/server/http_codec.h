@@ -14,8 +14,10 @@
 #include "project/common/tostring.h"
 #include "project/routing/router.h"
 
-namespace http {
 
+
+namespace uni {
+namespace http {
 
 class HttpCodec
 {
@@ -33,5 +35,6 @@ protected:
 };
 
 } // namespace http
+} // namespace uni
 
 #endif 

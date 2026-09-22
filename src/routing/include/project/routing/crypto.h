@@ -20,6 +20,8 @@
 #include "project/common/http_message.h"
 
 
+
+namespace uni {
 namespace cryp {
 
 struct CTX_Pointer_Free 
@@ -169,5 +171,6 @@ private:
 };
 
 } // namespace cryp
+} // namespace uni
 
 #endif 

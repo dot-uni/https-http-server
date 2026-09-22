@@ -1,5 +1,7 @@
 #include "project/server/http_connection.h"
 
+
+namespace uni {
 namespace http {
     
 HttpConnection::HttpConnection(
@@ -159,5 +161,4 @@ void HttpConnection::closeConnection(int& sockfd) noexcept
 }
 
 } // namespace http
-
-
+} // namespace uni

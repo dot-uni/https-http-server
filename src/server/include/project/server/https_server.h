@@ -7,6 +7,9 @@
 #include "project/server/http_server.h"
 #include "project/server/https_connection.h"
 
+
+
+namespace uni {
 namespace https {
 
 class SSLException : public std::runtime_error 
@@ -32,5 +35,6 @@ protected:
 };
 
 } // namespace https
+} // namespace uni
 
 #endif

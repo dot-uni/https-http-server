@@ -1,5 +1,7 @@
 #include "project/common/http_message.h"
 
+
+namespace uni {
 namespace http {
 
 Method to_method(std::string_view s)
@@ -52,3 +54,4 @@ Response makeResp(
 }
 
 } // namespace http
+} // namespace uni

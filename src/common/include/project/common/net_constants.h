@@ -2,6 +2,7 @@
 #define NET_CONSTANTS_INCLUDED
 
 
+namespace uni {
 namespace http {
 
 inline constexpr const char* kHttpPort = "8080";
@@ -12,5 +13,6 @@ inline constexpr int kInvalidSocket = -1;
 inline constexpr int kEmptyDescriptor = 0;
 
 } // namespace http
+} // namespace uni
 
 #endif 

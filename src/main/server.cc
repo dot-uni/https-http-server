@@ -1,5 +1,7 @@
 #include "project/server/https_server.h"
 
+using namespace uni;
+
 int main(int argc, char** argv) {
     
     if (argc < 4) {

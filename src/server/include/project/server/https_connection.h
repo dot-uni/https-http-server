@@ -6,6 +6,8 @@
 
 #include "project/server/http_connection.h"
 
+
+namespace uni {
 namespace https {
 
 class HttpsConnection : public http::HttpConnection
@@ -26,5 +28,6 @@ protected:
 };
 
 } // namespace https 
+} // namespace uni
 
 #endif

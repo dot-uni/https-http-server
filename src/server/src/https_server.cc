@@ -1,5 +1,7 @@
 #include "project/server/https_server.h"
 
+
+namespace uni {
 namespace https {
 
 HttpsServer::HttpsServer(
@@ -156,3 +158,4 @@ SSL* HttpsServer::sslHandshake(const http::ClientConnection& client) noexcept
 }
 
 } // namespace https
+} // namespace uni

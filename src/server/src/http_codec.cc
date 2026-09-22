@@ -1,5 +1,7 @@
 #include "project/server/http_codec.h"
 
+
+namespace uni {
 namespace http {
 
 std::optional<Request> HttpCodec::parse(std::string_view raw_req) 
@@ -154,3 +156,4 @@ std::string HttpCodec::process(std::string_view raw_req) {
 }
 
 } // namespace http
+} // namespace uni

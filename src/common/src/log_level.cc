@@ -1,5 +1,7 @@
 #include "project/common/log_level.h"
 
+
+namespace uni {
 namespace logrr {
 
 log_level to_log_level(std::string_view v) noexcept
@@ -106,7 +108,5 @@ bool important_log(log_level v)
     }
 }
 
-
-
-
 } // namespace logrr
+} // namespace uni

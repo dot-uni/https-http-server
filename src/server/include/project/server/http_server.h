@@ -62,8 +62,9 @@ namespace {
 } // namespace
 
 
-namespace http {
 
+namespace uni {
+namespace http {
 
 class HttpServer 
 {
@@ -108,5 +109,6 @@ inline bool HttpServer::listen() { return listen("0.0.0.0"); }
 inline void HttpServer::stopListen() noexcept { closeConnection(sockfd_); }
 
 } // namespace http
+} // namespace uni
 
 #endif

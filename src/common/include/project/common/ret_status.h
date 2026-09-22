@@ -8,6 +8,7 @@
 #include "project/common/status.h"
 
 
+namespace uni {
 namespace http {
 
 // Application-level result code returned in the `retCode` field of every response.
@@ -108,5 +109,6 @@ constexpr std::string_view retMesg(retCode code) {
 }
 
 } // namespace http
+} // namespace uni
 
 #endif

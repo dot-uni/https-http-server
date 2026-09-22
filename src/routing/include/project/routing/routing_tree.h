@@ -11,6 +11,8 @@
 #include "project/routing/crypto.h"
 
 
+
+namespace uni {
 namespace http {
 
 static constexpr size_t kDefaultBucketCount = 10;
@@ -193,5 +195,6 @@ bool RoutingTree<HashKey, Hash>::set_elem(HashMap& map, std::string_view elem, H
 }
 
 } // namespace http
+} // namespace uni
 
 #endif

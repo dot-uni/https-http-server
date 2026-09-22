@@ -23,6 +23,8 @@ std::string time_to_string(std::chrono::system_clock::time_point&& tp)
 } // namespace detail
 
 
+
+namespace uni {
 namespace logrr {
 
 
@@ -445,3 +447,4 @@ bool ShouldLog(logrr::log_level level) noexcept
 }
 
 } // namespace logrr
+} // namespace uni

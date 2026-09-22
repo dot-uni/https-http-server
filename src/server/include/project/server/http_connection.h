@@ -13,6 +13,8 @@
 #include "project/common/net_constants.h"
 
 
+
+namespace uni {
 namespace http {
 
 class ClientConnection final
@@ -65,5 +67,6 @@ protected:
 };
 
 } // namespace http
+} // namespace uni
 
 #endif

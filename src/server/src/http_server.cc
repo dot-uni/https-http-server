@@ -1,5 +1,7 @@
 #include "project/server/http_server.h"
 
+
+namespace uni {
 namespace http {
 
 HttpServer::HttpServer()
@@ -255,3 +257,4 @@ ClientConnection HttpServer::acceptConnection() noexcept
 }
 
 } // namespace http
+} // namespace uni

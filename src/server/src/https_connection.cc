@@ -1,5 +1,7 @@
 #include "project/server/https_connection.h"
 
+
+namespace uni {
 namespace https {
 
 HttpsConnection::HttpsConnection(
@@ -166,3 +168,4 @@ bool HttpsConnection::send(const std::string& resp) noexcept
 }
 
 } // namespace https
+} // namespace uni

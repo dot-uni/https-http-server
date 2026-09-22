@@ -1,6 +1,7 @@
 #include "project/common/status.h"
 
 
+namespace uni {
 namespace http {
 
 status int_to_status(unsigned v)
@@ -191,4 +192,5 @@ std::string_view obsolete_reason(status v)
     return "<unknown-status>";
 }
 
-} // namesapce http
+} // namespace http
+} // namespace uni

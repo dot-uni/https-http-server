@@ -5,6 +5,7 @@
 
 #define FALLTHROUGH [[fallthrough]]
 
+namespace uni {
 namespace http {
 
 enum class status : unsigned
@@ -146,5 +147,6 @@ status_class to_status_class(status v);
 std::string_view obsolete_reason(status v);
 
 } // namespace http
+} // namespace uni
 
 #endif 

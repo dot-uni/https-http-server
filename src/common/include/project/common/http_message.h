@@ -14,8 +14,8 @@
 #include "project/common/status.h"
 #include "project/common/ret_status.h"
 
+namespace uni {
 namespace http {
-
 
 struct CaseInsensitiveHash {
     size_t operator()(const std::string& s) const {
@@ -96,5 +96,6 @@ Response makeResp(
 );
 
 } // namespace http
+} // namespace uni
 
 #endif

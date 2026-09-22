@@ -12,8 +12,8 @@
 #include "project/logging/logging.h"
 
 
+namespace uni {
 namespace http {
-
 
 class RouterBase
 {
@@ -153,5 +153,6 @@ void RouterManager::Init(const HashKey& key)
 }
 
 } // namespace http
+} // namespace uni
 
 #endif

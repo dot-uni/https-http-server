@@ -77,6 +77,8 @@ void print_error(ErrorMessage m, Args&&... args)
 } // namespace detail
 
 
+
+namespace uni {
 namespace logrr {
 
 using LogField = std::pair<std::string, std::string>;
@@ -291,5 +293,6 @@ private:
 bool ShouldLog(logrr::log_level level) noexcept;
 
 } // namespace logrr
+} // namespace uni
 
 #endif

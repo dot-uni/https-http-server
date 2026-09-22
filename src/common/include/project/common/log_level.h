@@ -8,6 +8,7 @@
 #include "project/common/ret_status.h"
 
 
+namespace uni {
 namespace logrr {
 
 /**
@@ -45,5 +46,7 @@ bool important_log(log_level v);
 
 
 } // namespace logrr 
+} // namespace uni
+
 
 #endif

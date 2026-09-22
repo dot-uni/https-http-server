@@ -1,6 +1,7 @@
 #include "project/routing/router.h"
 
 
+namespace uni {
 namespace http {
 
 void RouterManager::Clear() noexcept
@@ -143,3 +144,4 @@ std::optional<Response> RouterManager::Route(const Request& req) noexcept
 }
 
 } // namespace http
+} // namespace uni

@@ -1,5 +1,7 @@
 #include "project/routing/crypto.h"
 
+
+namespace uni {
 namespace cryp {
 
 void CTX_Pointer_Free::operator()(EVP_MAC_CTX* ctx)
@@ -132,4 +134,5 @@ void SipHash::swap(SipHash& h)
     std::swap(key_, h.key_);
 }
 
-} // namespace crypto
+} // namespace cryp
+} // namespace uni
