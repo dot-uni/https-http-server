@@ -1,3 +1,0 @@
-add_subdirectory(logging)
-add_subdirectory(http_server)
-add_subdirectory(https_server)
