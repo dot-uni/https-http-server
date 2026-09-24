@@ -9,7 +9,7 @@
 #include "project/routing/routing_tree.h"
 #include "project/common/ret_status.h" 
 #include "project/routing/crypto.h"
-#include "project/logging/logging.h"
+#include "project/logging/logging_system.h"
 
 
 namespace uni {

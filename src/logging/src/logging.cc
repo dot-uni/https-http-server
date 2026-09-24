@@ -48,7 +48,7 @@ std::string ConsoleFormat(const LogInfo& i) noexcept
             base.pop_back();
         }
     } catch(fmt::format_error& mess) {
-        detail::print_error(mess.what());
+        syslog(mess.what());
     }
     return base;
 }
@@ -152,7 +152,7 @@ std::unique_ptr<FileSink> FileSink::create(const YAML::Node& config)
     try {
         return std::make_unique<FileSink>(path, format);
     } catch(const std::exception& msg) {
-        detail::print_error(msg.what());
+        syslog(msg.what());
     }
     return nullptr;
 }
@@ -164,7 +164,7 @@ bool FileSink::log(const LogInfo& info) noexcept
 
     file_ << inf << '\n';
     if (file_.fail()) {
-        detail::print_error("Error writing to log file: ", strerror(errno));
+        syslog("Error writing to log file: ", strerror(errno));
         file_.clear(); 
         return false;
     }
@@ -180,7 +180,7 @@ bool FileSink::flush() noexcept
 {
     file_.flush();
     if (file_.fail()) {
-        detail::print_error("Failed to flush file: ", std::strerror(errno));
+        syslog("Failed to flush file: ", std::strerror(errno));
         file_.clear(); 
         return false;
     }
@@ -208,243 +208,6 @@ void Logger::log(
     std::vector<LogField>&& details,
     std::source_location loc
 ) const noexcept { log(LogInfo{level, info, std::move(details), std::move(loc)}); }
-
-
-/** logrr::LogStream 
- */
-
-LogStream::LogStream(
-    const Logger& logger, 
-    log_level level, 
-    std::source_location loc,
-    std::string_view msg, 
-    std::vector<LogField>&& details
-) : logger_(logger), linfo_(level, msg, std::move(details), std::move(loc)) {}
-
-
-LogStream::LogStream(
-    const Logger& logger, 
-    log_level level, 
-    std::source_location loc,
-    std::vector<LogField>&& details
-) : LogStream(logger, level, std::move(loc), "", std::move(details)) {}
-
-
-LogStream::LogStream(
-    const Logger& logger, 
-    http::retCode code, 
-    std::source_location loc,
-    std::string_view msg, 
-    std::vector<LogField>&& details
-) : logger_(logger)
-{
-    http::status s = http::to_http_status(code);
-    std::vector<LogField> details_base = {
-        logrr::field("retCode", code),
-        logrr::field("retMesg", http::retMesg(code)),
-        logrr::field("status", s),
-        logrr::field("obsolete_reason", http::obsolete_reason(s))
-    };
-    details.insert(details.end(), details_base.begin(), details_base.end());
-
-    linfo_ = LogInfo(to_log_level(code), msg, std::move(details), std::move(loc));
-}
-
-
-LogStream::LogStream(
-    const Logger& logger, 
-    http::retCode code, 
-    std::source_location loc,
-    std::vector<LogField>&& details
-) : LogStream(logger, code, std::move(loc), "", std::move(details)) {}
-
-
-LogStream::LogStream(
-    const Logger& logger, 
-    http::status status, 
-    std::source_location loc,
-    std::string_view msg, 
-    std::vector<LogField>&& details
-) : logger_(logger)
-{
-    std::vector<LogField> details_base = {
-        logrr::field("status", status),
-        logrr::field("obsolete_reason", http::obsolete_reason(status))
-    };
-    details.insert(details.end(), details_base.begin(), details_base.end());
-
-    linfo_ = LogInfo(to_log_level(status), msg, std::move(details), std::move(loc));
-}
-
-
-LogStream::LogStream(
-    const Logger& logger, 
-    http::status status, 
-    std::source_location loc,
-    std::vector<LogField>&& details
-) : LogStream(logger, status, std::move(loc), "", std::move(details)) {}
-
-
-LogStream::~LogStream()
-{
-    try {
-        if (!buffer_.empty()) {
-            fmt::dynamic_format_arg_store<fmt::format_context> store;
-            for (const auto& arg : buffer_) {
-                store.push_back(arg);
-            }
-            linfo_.info = fmt::vformat(linfo_.info, store);
-        }
-        logger_.log(std::move(linfo_));
-    } catch(const std::exception& msg) {
-        detail::print_error(msg.what());
-    } catch(...) {
-        detail::print_error("unknown error in LogStream::~LogStream");
-    }
-} 
-
-
-std::unique_ptr<ISink> CreateSink(const YAML::Node& sink)
-{
-    if (!sink.IsMap() || sink.size() != 1) {
-        detail::print_error("Each sink entry must be a single-key mapping");
-        return nullptr;
-    }
-
-    auto item = sink.begin();
-    YAML::Node sink_name = item->first;
-    YAML::Node settings = item->second;
-
-    if (!sink_name.IsScalar()) {
-        detail::print_error("The name 'sink' is not a scalar");
-        return nullptr;
-    }
-
-    if (!settings.IsMap()) {
-        detail::print_error("The set of arguments is not presented as a dictionary");
-        return nullptr;
-    }
-    
-    const auto enabled = settings["enabled"];
-
-    if (!enabled || !enabled.IsScalar()) {
-        detail::print_error("'enabled' is missing or is not a scalar");
-        return nullptr;
-    }
-
-    if (!enabled.as<bool>()) {
-        return nullptr;
-    }
-
-    std::string name = sink_name.as<std::string>();
-    if (name == "console") return ConsoleSink::create(settings);
-    else if (name == "file") return FileSink::create(settings);
-
-    detail::print_error("There is no such sink: `", name, "`");
-    return nullptr;
-
-}
-
-
-std::optional<LogConfig> ParseLogConfig(std::string_view config_name)
-{
-    YAML::Node config;
-    try {
-        config = YAML::LoadFile(std::string(config_name));
-    } catch(const YAML::Exception& msg) {
-        detail::print_error(msg.what());
-        return std::nullopt;
-    }
-
-    if (!config["logging"] || !config["logging"].IsMap()) {
-        detail::print_error("'logging' is missing or is not a dictionary");
-        return std::nullopt;
-    }
-
-    if (!config["logging"]["level"] || !config["logging"]["level"].IsScalar()) {
-        detail::print_error("`level` is missing or is not a scalar");
-        return std::nullopt;
-    }
-
-    if (!config["logging"]["sinks"] || !config["logging"]["sinks"].IsSequence()) {
-        detail::print_error("`sinks` is missing or is not a sequence");
-        return std::nullopt;
-    } 
-
-    logrr::log_level level = logrr::to_log_level(config["logging"]["level"].as<std::string>());
-    if (level == log_level::unknown) {
-        detail::print_error("unknown logging level");
-        return std::nullopt;
-    }
-
-    std::vector<std::shared_ptr<ISink>> sinks;
-    for (const auto& sink : config["logging"]["sinks"]) {
-        if (auto created = CreateSink(sink)) {
-            sinks.push_back(std::move(created));
-        }
-    }
-    
-    return LogConfig(level, std::move(sinks));
-}
-
-
-/** logrr::LogManager 
- */
-
-bool LogManager::Init(std::string_view config_name)
-{
-    std::optional<LogConfig> config = ParseLogConfig(config_name);
-    if (!config) { return false; }
-    
-    return Init(std::move(*config));
-}
-
-
-bool LogManager::Init(LogConfig&& config) 
-{
-    try {
-        logger_ = std::make_unique<Logger>(std::move(config));
-        return true;
-    } catch(const std::exception& msg) {
-        detail::print_error(msg.what());
-        return false;
-    }
-}
-
-
-std::optional<std::reference_wrapper<Logger>> LogManager::Get() noexcept
-{
-    if (!logger_) {
-        return std::nullopt;
-    }
-    return std::ref(*logger_);
-}
-
-
-log_level LogManager::GetLevel() noexcept
-{
-    if (!logger_) {
-        return log_level::unknown;
-    }
-    return logger_->level();
-}
-
-
-void LogManager::ShutDown() noexcept
-{
-    logger_.reset();
-}
-
-
-bool ShouldLog(logrr::log_level level) noexcept
-{
-    log_level set_level = LogManager::GetLevel();
-
-    if (!static_cast<int>(set_level) || set_level > level) {
-        return false;
-    }
-    return true;
-}
 
 } // namespace logrr
 } // namespace uni

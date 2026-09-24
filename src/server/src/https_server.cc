@@ -107,11 +107,8 @@ void HttpsServer::clientIntakeCycle(int bufsize) noexcept
                 HttpsConnection connection(ssl, std::move(client), bufsize);
                 connection.process();
             }
-            exit(0);
+            _exit(0);
         }
-
-        // HttpsConnection connection(ssl, std::move(client), bufsize);
-        // connection.process();
     }
 }
 

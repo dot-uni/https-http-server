@@ -9,7 +9,7 @@
 #include <optional>
 
 #include "project/common/uuid.h"
-#include "project/logging/logging.h"
+#include "project/logging/logging_system.h"
 #include "project/common/http_message.h"
 #include "project/common/tostring.h"
 #include "project/routing/router.h"

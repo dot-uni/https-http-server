@@ -219,7 +219,7 @@ void HttpServer::clientIntakeCycle(int bufsize) noexcept
                 HttpConnection connection(std::move(client), bufsize);
                 connection.process();
             }
-            exit(0);
+            _exit(0);
         }
     }
 }

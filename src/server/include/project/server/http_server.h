@@ -19,7 +19,7 @@
 #include <sstream>
 #include <type_traits>
 
-#include "project/logging/logging.h"
+#include "project/logging/logging_system.h"
 #include "project/server/http_connection.h"
 #include "project/common/net_constants.h"
 #include "project/common/uuid.h"

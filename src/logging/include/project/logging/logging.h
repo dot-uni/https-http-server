@@ -24,55 +24,16 @@
 #include <nlohmann/json.hpp>
 #include <yaml-cpp/yaml.h>
 
-#ifdef __APPLE__
-#include <sys/event.h>
-#endif
-
 #include "project/common/tostring.h"
 #include "project/common/log_level.h"
 #include "project/common/status.h"
 #include "project/common/ret_status.h"
-
-
-#define LOG(level, ...)                                                            \
-    for (bool should_log = logrr::ShouldLog(logrr::to_log_level(level)); should_log; should_log = false)     \
-        if (auto logger = logrr::LogManager::Get(); logger)                             \
-            logrr::LogStream(*logger, level, std::source_location::current() __VA_OPT__(,) __VA_ARGS__)
-
-#define LOG_INFO(...) LOG(logrr::log_level::info, __VA_ARGS__)
-#define LOG_ERROR(...) LOG(logrr::log_level::error, __VA_ARGS__)
-#define LOG_WARN(...) LOG(logrr::log_level::warning, __VA_ARGS__)
-#define LOG_CRIT(...) LOG(logrr::log_level::critical, __VA_ARGS__)
-#define LOG_DEBUG(...) LOG(logrr::log_level::debug, __VA_ARGS__)
-#define LOG_TRACE(...) LOG(logrr::log_level::trace, __VA_ARGS__)
-
-#define LOG_USING_RETCODE(code, ...) LOG(code __VA_OPT__(,) __VA_ARGS__)
-#define LOG_USING_STATUS(status, ...) LOG(status __VA_OPT__(,) __VA_ARGS__)
+#include "project/common/syslog.h"
 
 
 namespace detail {
 
 std::string time_to_string(std::chrono::system_clock::time_point&& tp);
-
-
-struct ErrorMessage 
-{
-    std::string_view msg;
-    std::source_location loc;
-    ErrorMessage(const char* m, std::source_location l = std::source_location::current()) : msg(m), loc(l) {}
-    ErrorMessage(std::string_view m, std::source_location l = std::source_location::current()) : msg(m), loc(l) {}
-};
-
-
-template <typename... Args>
-void print_error(ErrorMessage m, Args&&... args) 
-{
-    fmt::print(stderr, R"([error]: {}:({}:{}) {})", m.loc.file_name(), m.loc.line(), m.loc.column(), m.msg);
-    if (!sizeof...(args)) {
-        (fmt::print(stderr, "{}", args), ...);
-    }
-    fmt::print(stderr, "\n");
-} 
 
 } // namespace detail
 
@@ -170,11 +131,6 @@ private:
 };
 
 
-
-template <typename Sink>
-concept IsSink = std::derived_from<Sink, logrr::ISink>;
-
-
 class Logger 
 {
 public:
@@ -195,102 +151,6 @@ protected:
     log_level level_;
     std::vector<std::shared_ptr<ISink>> sinks_;
 };
-
-
-
-class LogStream final
-{
-public:
-    // logrr::log_level 
-    LogStream(
-        const Logger& logger, 
-        log_level level, 
-        std::source_location loc,
-        std::string_view msg, 
-        std::vector<LogField>&& details={}
-    );
-    LogStream(
-        const Logger& logger, 
-        log_level level, 
-        std::source_location loc,
-        std::vector<LogField>&& details
-    );
-
-    // http::retCode 
-    LogStream(
-        const Logger& logger, 
-        http::retCode code, 
-        std::source_location loc,
-        std::string_view msg, 
-        std::vector<LogField>&& details={}
-    );
-    LogStream(
-        const Logger& logger, 
-        http::retCode code, 
-        std::source_location loc,
-        std::vector<LogField>&& details={}
-    );
-
-    // http::status 
-    LogStream(
-        const Logger& logger, 
-        http::status status, 
-        std::source_location loc,
-        std::string_view msg, 
-        std::vector<LogField>&& details={}
-    );
-    LogStream(
-        const Logger& logger, 
-        http::status status, 
-        std::source_location loc,
-        std::vector<LogField>&& details={}
-    );
-
-    ~LogStream();
-    template <typename T> LogStream& operator<<(const T& v);
-private:
-    Logger logger_;
-    LogInfo linfo_;
-    std::vector<std::string> buffer_;
-};
-
-
-template <typename T> 
-LogStream& LogStream::operator<<(const T& v)
-{
-    buffer_.push_back(frmt::to_string(v));
-    return *this;
-}
-
-
-
-std::unique_ptr<ISink> CreateSink(const YAML::Node& sink);
-std::optional<LogConfig> ParseLogConfig(std::string_view config_name);
-
-
-// class ConfigWatcher 
-// {
-// public:
-
-// private:
-
-// };
-
-
-class LogManager final
-{
-public:
-    static bool Init(std::string_view config_name);
-    static bool Init(LogConfig&& config);
-    static std::optional<std::reference_wrapper<Logger>> Get() noexcept;
-    static log_level GetLevel() noexcept;
-    static void ShutDown() noexcept;
-private:
-    inline static std::unique_ptr<Logger> logger_ = nullptr;
-}; 
-
-
-bool ShouldLog(logrr::log_level level) noexcept;
 
 } // namespace logrr
 } // namespace uni

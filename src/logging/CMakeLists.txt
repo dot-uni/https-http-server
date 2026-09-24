@@ -1,5 +1,9 @@
 add_library(project_logging STATIC
     src/logging.cc
+    src/logging_manager.cc
+    src/logging_system.cc
+    src/config_watcher.cc
+    src/config_watcher_impl/macos.cc
 )
 
 add_library(project::logging ALIAS project_logging)
