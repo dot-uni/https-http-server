@@ -10,7 +10,6 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // logrr::LogManager::Init(argv[3]);
     logrr::LogSystem::Start(argv[3]);
 
     http::RouterManager::Init();

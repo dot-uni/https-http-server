@@ -5,7 +5,7 @@ namespace uni {
 namespace logrr {
 
 
-ConfigWatcher::ConfigWatcherImpl::ConfigWatcherImpl(std::filesystem::path path, SignalHandler sh) : sh_(std::move(sh))
+ConfigWatcher::ConfigWatcherImpl::ConfigWatcherImpl(std::filesystem::path path, SignalHandler sh) : sh_(std::move(sh)), started_(false)
 {
     if (!std::filesystem::exists(path)) {
         throw std::runtime_error("File not found: " + path.string());
@@ -19,7 +19,6 @@ ConfigWatcher::ConfigWatcherImpl::ConfigWatcherImpl(std::filesystem::path path, 
 
     if ((kq_ = kqueue()) == -1) {
         close(fd_);
-        fd_ = -1;
         throw std::runtime_error("kqueue failed to return a descriptor");
     }
 
@@ -30,8 +29,6 @@ ConfigWatcher::ConfigWatcherImpl::ConfigWatcherImpl(std::filesystem::path path, 
     if (ret == -1) {
         close(kq_);
         close(fd_);
-        kq_ = -1;
-        fd_ = -1;
         throw std::runtime_error("kevent registration error");
     }
 }
@@ -52,12 +49,18 @@ ConfigWatcher::ConfigWatcherImpl::~ConfigWatcherImpl()
 void ConfigWatcher::ConfigWatcherImpl::Start()
 {
     std::lock_guard<std::mutex> lock(mtx_);
+    started_.store(true);
     worker_ = std::thread(&ConfigWatcher::ConfigWatcherImpl::Run, this);
 }
 
 
 void ConfigWatcher::ConfigWatcherImpl::Stop()
 {
+    if (!started_.exchange(false)) {
+        sys_warn("Warning regarding an attempt to call Stop() again on the ConfigWatcher object");
+        return;
+    }
+
     struct kevent kev;
     EV_SET(&kev, 1, EVFILT_USER, 0, NOTE_TRIGGER, 0, nullptr);
     kevent(kq_, &kev, 1, nullptr, 0, nullptr);
@@ -73,34 +76,62 @@ void ConfigWatcher::ConfigWatcherImpl::Run()
 {
     try {
         while (true) {
-        struct kevent triggerd;
-        const int n = kevent(kq_, nullptr, 0, &triggerd, 1, nullptr);
+        struct kevent triggered;
+        const int n = kevent(kq_, nullptr, 0, &triggered, 1, nullptr);
         if (n == -1) {
-            // log плохой
+            sys_error("Config watcher kevent() failed: {}", std::strerror(errno));
             return;
         }
-        else if (n > 0 && (triggerd.flags & EV_ERROR)) {
-            // log плохой
+
+        if (!n) {
+            sys_info("Config watcher kevent() returned no events");
+            continue;
+        }
+
+        if (triggered.flags & EV_ERROR) {
+            sys_error(
+                "Config watcher received EV_ERROR: filter={}, ident={}, error={}", 
+                triggered.filter, triggered.ident, std::strerror(static_cast<int>(triggered.data))
+            );
             return;
         }
-        switch (triggerd.filter) {
+
+        switch (triggered.filter) {
             case EVFILT_VNODE: {
-                if (!(triggerd.fflags & NOTE_WRITE)) {
-                    // log и вывод triggerd.fflags
+                sys_info(
+                    "Config watcher received vnode event: ident={}, flags={}", 
+                    triggered.ident, triggered.fflags
+                );
+
+                if (!(triggered.fflags & NOTE_WRITE)) {
+                    sys_info(
+                        "Config watcher ignored vnode event without NOTE_WRITE: fflags={}",
+                        triggered.fflags
+                    );
                     break;
                 }
 
                 char path[PATH_MAX];
                 if (fcntl(fd_, F_GETPATH, path) == -1) {
-                    // log плохой
+                    sys_error(
+                        "Config watcher failed to resolve watched file path: {}",
+                        std::strerror(errno)
+                    );
                     break;
                 }
+
+                sys_info("Config watcher detected configuration update: {}", path);
+
                 try {
                     sh_(path);
+                    sys_info("Config watcher callback completed: {}", path);
                 } catch (const std::exception& error) {
-                    syslog("Config watcher callback failed: ", error.what());
+                    sys_error(
+                        "Config watcher callback failed for {}: {}", 
+                        path, error.what()
+                    );
                 } catch (...) {
-                    syslog("Config watcher callback failed with an unknown exception");
+                    sys_error("Config watcher callback failed for {}: unknown exception", path);
                 }
                 break;
             }
@@ -111,9 +142,9 @@ void ConfigWatcher::ConfigWatcherImpl::Run()
         }
     }
     } catch (const std::exception& error) {
-        syslog("Config watcher thread failed: ", error.what());
+        sys_error("Config watcher thread failed: {}", error.what());
     } catch (...) {
-        syslog("Config watcher thread failed with an unknown exception");
+        sys_error("Config watcher thread failed with an unknown exception");
     }
 }
 

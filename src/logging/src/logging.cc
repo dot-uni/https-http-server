@@ -48,7 +48,7 @@ std::string ConsoleFormat(const LogInfo& i) noexcept
             base.pop_back();
         }
     } catch(fmt::format_error& mess) {
-        syslog(mess.what());
+        sys_error(mess.what());
     }
     return base;
 }
@@ -152,7 +152,7 @@ std::unique_ptr<FileSink> FileSink::create(const YAML::Node& config)
     try {
         return std::make_unique<FileSink>(path, format);
     } catch(const std::exception& msg) {
-        syslog(msg.what());
+        sys_error(msg.what());
     }
     return nullptr;
 }
@@ -164,7 +164,7 @@ bool FileSink::log(const LogInfo& info) noexcept
 
     file_ << inf << '\n';
     if (file_.fail()) {
-        syslog("Error writing to log file: ", strerror(errno));
+        sys_error("Error writing to log file: {}", strerror(errno));
         file_.clear(); 
         return false;
     }
@@ -180,7 +180,7 @@ bool FileSink::flush() noexcept
 {
     file_.flush();
     if (file_.fail()) {
-        syslog("Failed to flush file: ", std::strerror(errno));
+        sys_error("Failed to flush file: {}", std::strerror(errno));
         file_.clear(); 
         return false;
     }

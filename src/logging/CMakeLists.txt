@@ -3,8 +3,11 @@ add_library(project_logging STATIC
     src/logging_manager.cc
     src/logging_system.cc
     src/config_watcher.cc
-    src/config_watcher_impl/macos.cc
 )
+
+if(APPLE)
+    target_sources(project_logging PRIVATE src/config_watcher_impl/macos.cc)
+endif()
 
 add_library(project::logging ALIAS project_logging)
 

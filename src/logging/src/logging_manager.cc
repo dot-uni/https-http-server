@@ -7,7 +7,7 @@ namespace logrr {
 std::unique_ptr<ISink> CreateSink(const YAML::Node& sink)
 {
     if (!sink.IsMap() || sink.size() != 1) {
-        syslog("Each sink entry must be a single-key mapping");
+        sys_error("Each sink entry must be a single-key mapping");
         return nullptr;
     }
 
@@ -16,19 +16,19 @@ std::unique_ptr<ISink> CreateSink(const YAML::Node& sink)
     YAML::Node settings = item->second;
 
     if (!sink_name.IsScalar()) {
-        syslog("The name 'sink' is not a scalar");
+        sys_error("The name 'sink' is not a scalar");
         return nullptr;
     }
 
     if (!settings.IsMap()) {
-        syslog("The set of arguments is not presented as a dictionary");
+        sys_error("The set of arguments is not presented as a dictionary");
         return nullptr;
     }
     
     const auto enabled = settings["enabled"];
 
     if (!enabled || !enabled.IsScalar()) {
-        syslog("'enabled' is missing or is not a scalar");
+        sys_error("'enabled' is missing or is not a scalar");
         return nullptr;
     }
 
@@ -40,7 +40,7 @@ std::unique_ptr<ISink> CreateSink(const YAML::Node& sink)
     if (name == "console") return ConsoleSink::create(settings);
     else if (name == "file") return FileSink::create(settings);
 
-    syslog("There is no such sink: `", name, "`");
+    sys_error("There is no such sink: `{}`", name);
     return nullptr;
 
 }
@@ -51,28 +51,20 @@ std::unique_ptr<ISink> CreateSink(const YAML::Node& sink)
 
 LogManager::LogManager(std::filesystem::path path) : logger_(nullptr), paused_(false)
 {
-    syslog_to(stdout, "Path to log config: '", path.string(), "'");
-    std::optional<LogConfig> config = ParseLogConfig(path);
-    if (!config) { return; }
-    
-    try {
-        logger_ = std::make_unique<Logger>(std::move(*config));
-    } catch(const std::exception& msg) {
-        syslog("The Logger was not created", msg.what());
-    }
+    Init(std::move(path));
 }
 
 
 bool LogManager::Init(std::filesystem::path path)
 {
-    syslog_to(stdout, "Path to log config: '", path.string(), "'");
+    sys_info("Path to log config: '{}'", path.string());
     std::optional<LogConfig> config = ParseLogConfig(path);
     if (!config) { return false; }
     
     try {
         logger_ = std::make_unique<Logger>(std::move(*config));
     } catch(const std::exception& msg) {
-        syslog("The Logger was not created", msg.what());
+        sys_error("The Logger was not created {}", msg.what());
         return false;
     }
     return true;
@@ -81,14 +73,14 @@ bool LogManager::Init(std::filesystem::path path)
 
 void LogManager::Pause() noexcept
 {
-    syslog_to(stdout, "A pause has been set in LogManager");
+    sys_info("A pause has been set in LogManager");
     paused_ = true;
 }
 
 
 void LogManager::Remain() noexcept
 {
-    syslog_to(stdout, "The pause in LogManager has been removed");
+    sys_info("The pause in LogManager has been removed");
     paused_ = false;
 }
 
@@ -129,45 +121,45 @@ std::optional<LogConfig> LogManager::ParseLogConfig(std::filesystem::path path)
     try {
         config = YAML::LoadFile(path.string());
     } catch(const YAML::Exception& msg) {
-        syslog(msg.what());
+        sys_error(msg.what());
         return std::nullopt;
     }
 
     if (!config["logging"] || !config["logging"].IsMap()) {
-        syslog("'logging' is missing or is not a dictionary");
+        sys_error("'logging' is missing or is not a dictionary");
         return std::nullopt;
     }
 
     if (config["logging"]["enabled"]) {
         if (!config["logging"]["enabled"].IsScalar()) {
-            syslog("'enabled' field in 'logging' is not a scalar");
+            sys_error("'enabled' field in 'logging' is not a scalar");
             return std::nullopt;
         }
         
         if (!config["logging"]["enabled"].as<bool>()) {
             Pause();
-            syslog_to(stdout, "Logging has been disabled: 'enabled: false'");
+            sys_info("Logging has been disabled: 'enabled: false'");
             return std::nullopt;
         }
         else {
             Remain();
-            syslog_to(stdout, "Logging has been enabled: 'enabled: true'");
+            sys_info("Logging has been enabled: 'enabled: true'");
         }
     }
 
     if (!config["logging"]["level"] || !config["logging"]["level"].IsScalar()) {
-        syslog("`level` is missing or is not a scalar");
+        sys_error("`level` is missing or is not a scalar");
         return std::nullopt;
     }
 
     if (!config["logging"]["sinks"] || !config["logging"]["sinks"].IsSequence()) {
-        syslog("`sinks` is missing or is not a sequence");
+        sys_error("`sinks` is missing or is not a sequence");
         return std::nullopt;
     } 
 
     logrr::log_level level = logrr::to_log_level(config["logging"]["level"].as<std::string>());
     if (level == log_level::unknown) {
-        syslog("unknown logging level");
+        sys_error("unknown logging level");
         return std::nullopt;
     }
 

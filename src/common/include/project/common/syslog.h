@@ -5,39 +5,60 @@
 #include <string>
 #include <string_view>
 
+#include "project/common/log_level.h"
+
 
 namespace uni {
 namespace logrr {
 
 struct ErrorMessage 
 {
-    std::string_view msg;
+    std::string format;
     std::source_location loc;
-    ErrorMessage(const char* m, std::source_location l = std::source_location::current()) : msg(m), loc(l) {}
-    ErrorMessage(std::string_view m, std::source_location l = std::source_location::current()) : msg(m), loc(l) {}
+    ErrorMessage(const char* f, std::source_location l = std::source_location::current()) : format(f), loc(l) {}
+    ErrorMessage(std::string_view f, std::source_location l = std::source_location::current()) : format(f), loc(l) {}
 };
 
 
 template <typename... Args>
-void syslog_to(std::FILE* out, ErrorMessage m, Args&&... args) 
+void syslog(std::FILE* out, log_level level, ErrorMessage&& em, Args&&... args) 
 {
-    if (out == stderr) {
-        fmt::print(out, R"(__[ERROR_SYSLOG]__: {}:({}:{}) {})", m.loc.file_name(), m.loc.line(), m.loc.column(), m.msg);
-    } else {
-        fmt::print(out, R"(__[INFO_SYSLOG]__: {}:({}:{}) {})", m.loc.file_name(), m.loc.line(), m.loc.column(), m.msg);
+    try {
+        std::string log_msg = "[" + std::string(obsolete_reason(level)) + "_SYSLOG] {}:({}:{}) " + em.format + "\n";
+        fmt::print(out, fmt::runtime(log_msg), em.loc.file_name(), em.loc.line(), em.loc.column(), std::forward<Args>(args)...);
+    } catch(const std::exception& msg) {
+        std::cerr << msg.what() << '\n';
     }
-
-    if constexpr (sizeof...(args) > 0) {
-        (fmt::print(out, "{}", std::forward<Args>(args)), ...);
-    }
-    fmt::print(out, "\n");
 }
 
+
 template <typename... Args>
-void syslog(ErrorMessage m, Args&&... args) 
+void sys_info(ErrorMessage em, Args&&... args) 
 {
-    syslog_to(stderr, std::move(m), std::forward<Args>(args)...);
-} 
+    syslog(stdout, log_level::info, std::move(em), std::forward<Args>(args)...);
+}
+
+
+template <typename... Args>
+void sys_error(ErrorMessage em, Args&&... args) 
+{
+    syslog(stderr, log_level::error, std::move(em), std::forward<Args>(args)...);
+}
+
+
+template <typename... Args>
+void sys_crit(ErrorMessage em, Args&&... args) 
+{
+    syslog(stderr, log_level::critical, std::move(em), std::forward<Args>(args)...);
+}
+
+
+template <typename... Args>
+void sys_warn(ErrorMessage em, Args&&... args) 
+{
+    syslog(stdout, log_level::warning, std::move(em), std::forward<Args>(args)...);
+}
+
 
 } // namespace logrr
 } // namespace uni

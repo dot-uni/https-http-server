@@ -102,9 +102,9 @@ LogStream::~LogStream()
         }
         logger_.log(std::move(linfo_));
     } catch(const std::exception& msg) {
-        syslog(msg.what());
+        sys_error(msg.what());
     } catch(...) {
-        syslog("unknown error in LogStream::~LogStream");
+        sys_error("unknown error in LogStream::~LogStream");
     }
 } 
 
@@ -121,10 +121,10 @@ bool LogSystem::Init(std::filesystem::path path)
             [](std::filesystem::path p) { return lm_->Init(p); }
         );
     } catch(const std::bad_alloc& msg) {
-        syslog("Error initializing LogManager and ConfigWatcher: ", msg.what());
+        sys_error("Error initializing LogManager and ConfigWatcher: {}", msg.what());
         return false;
     } catch(const std::runtime_error& msg) {
-        syslog("Error in the constructor: ", msg.what());
+        sys_error("Error in the constructor: {}", msg.what());
         return false;
     }
 
@@ -132,7 +132,7 @@ bool LogSystem::Init(std::filesystem::path path)
 
     lock.unlock();
 
-    syslog_to(stdout, "LogManager and ConfigWatcher initialized");
+    sys_info("LogManager and ConfigWatcher initialized");
     return true;
 }
 
@@ -141,7 +141,7 @@ bool LogSystem::Start()
 {
     std::lock_guard lock(mtx_);
     if (!lm_ || !cw_) {
-        syslog("The LogSystem::Init method was not called to initialize the linking");
+        sys_error("The LogSystem::Init method was not called to initialize the linking");
         return false;
     }
 
@@ -165,10 +165,10 @@ bool LogSystem::Start(std::filesystem::path path)
             [](std::filesystem::path p) { return lm_->Init(p); }
         );
     } catch(const std::bad_alloc& msg) {
-        syslog("Error initializing LogManager and ConfigWatcher: ", msg.what());
+        sys_error("Error initializing LogManager and ConfigWatcher: {}", msg.what());
         return false;
     } catch(const std::runtime_error& msg) {
-        syslog("Error in the constructor: ", msg.what());
+        sys_error("Error in the constructor: {}", msg.what());
         return false;
     }
 
@@ -176,7 +176,7 @@ bool LogSystem::Start(std::filesystem::path path)
 
     lock.unlock();
 
-    syslog_to(stdout, "The LogSystem was successfully started");
+    sys_info("The LogSystem was successfully started");
     return true;
 }
 
@@ -186,7 +186,7 @@ void LogSystem::Stop()
     std::lock_guard lock(mtx_);
     
     if (!lm_ || !cw_) {
-        syslog("The LogSystem::Init method was not called to initialize the linking");
+        sys_error("The LogSystem::Init method was not called to initialize the linking");
         return;
     }
 

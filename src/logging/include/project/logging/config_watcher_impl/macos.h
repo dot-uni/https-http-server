@@ -6,6 +6,7 @@
 #include <mutex>
 
 #include "project/logging/config_watcher.h"
+#include "project/common/syslog.h"
 
 
 namespace uni {
@@ -32,7 +33,7 @@ private:
     int kq_ = -1;
     SignalHandler sh_;
     std::thread worker_;
-    std::atomic<bool> stopped_;
+    std::atomic_bool started_;
     std::mutex mtx_;
 };
 
