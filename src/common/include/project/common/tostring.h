@@ -10,8 +10,7 @@
 #include <fmt/chrono.h>
 
 
-namespace uni {
-namespace frmt {
+namespace uni::common {
 
 template <typename T>
 constexpr std::string to_string(T&& value) {
@@ -54,7 +53,6 @@ constexpr std::string concat(Args&&... args) {
     return res;
 }
 
-} // namespace frmt
-} // namespace uni
+} // namespace uni::common
 
 #endif

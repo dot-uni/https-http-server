@@ -17,12 +17,10 @@
 #include <vector>
 #include <stdexcept>
 
-#include "project/common/http_message.h"
+#include "project/server/http/http_message.h"
 
 
-
-namespace uni {
-namespace cryp {
+namespace uni::routing::cryp {
 
 struct CTX_Pointer_Free 
 {
@@ -170,7 +168,6 @@ private:
     std::shared_ptr<SipHashKey> key_;
 };
 
-} // namespace cryp
-} // namespace uni
+} // namespace uni::routing::cryp
 
 #endif 

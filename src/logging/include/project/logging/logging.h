@@ -25,10 +25,10 @@
 #include <yaml-cpp/yaml.h>
 
 #include "project/common/tostring.h"
-#include "project/common/log_level.h"
-#include "project/common/status.h"
-#include "project/common/ret_status.h"
-#include "project/common/syslog.h"
+#include "project/common/status/log.h"
+#include "project/common/status/http.h"
+#include "project/common/status/retcode.h"
+#include "project/logging/syslog.h"
 
 
 namespace detail {
@@ -39,8 +39,9 @@ std::string time_to_string(std::chrono::system_clock::time_point&& tp);
 
 
 
-namespace uni {
-namespace logrr {
+namespace uni::logging {
+
+namespace status = ::uni::common::status;
 
 using LogField = std::pair<std::string, std::string>;
 
@@ -53,14 +54,14 @@ constexpr LogField field(std::string_view key, T&& value)
         return LogField{key, std::forward<T>(value)};
     }
     else {
-        return LogField{key, frmt::to_string(std::forward<T>(value))};
+        return LogField{key, uni::common::to_string(std::forward<T>(value))};
     } 
 }
 
 
 struct LogInfo
 {
-    log_level status;
+    status::log status;
     std::string info;
     std::source_location loc;
     std::vector<LogField> details;
@@ -68,7 +69,7 @@ struct LogInfo
 
     LogInfo() = default;
     LogInfo(
-        log_level s, 
+        status::log s, 
         std::string_view i, 
         std::vector<LogField>&& d={},
         std::source_location l = std::source_location::current()
@@ -89,7 +90,7 @@ struct ISink
 
 struct LogConfig
 {
-    logrr::log_level level;
+    status::log level;
     std::vector<std::shared_ptr<ISink>> sinks;
 };
 
@@ -139,20 +140,19 @@ public:
 
     void log(const LogInfo& info) const noexcept;
     void log(
-        log_level level, 
+        status::log level, 
         std::string_view info, 
         std::vector<LogField>&& details={},
         std::source_location loc = std::source_location::current()
     ) const noexcept;
 
-    constexpr void set_level(logrr::log_level level) noexcept { level_ = level; }
-    constexpr logrr::log_level level() const noexcept { return level_; }
+    constexpr void set_level(status::log level) noexcept { level_ = level; }
+    constexpr status::log level() const noexcept { return level_; }
 protected:
-    log_level level_;
+    status::log level_;
     std::vector<std::shared_ptr<ISink>> sinks_;
 };
 
-} // namespace logrr
-} // namespace uni
+} // namespace uni::logging
 
 #endif

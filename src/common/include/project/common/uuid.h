@@ -5,12 +5,10 @@
 #include <sstream>
 #include <iomanip>
 
-namespace uni {
-namespace uuid {
+namespace uni::common::uuid  {
 
 std::string generate_uuid_v4();
 
-} // namespace uuid
-} // namespace uni
+} // namespace uni::common::uuid 
 
 #endif

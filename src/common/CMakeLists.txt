@@ -1,8 +1,7 @@
 add_library(project_common STATIC
-    src/log_level.cc
-    src/status.cc
+    src/status/log.cc
+    src/status/http.cc
     src/uuid.cc
-    src/http_message.cc
 )
 
 add_library(project::common ALIAS project_common)

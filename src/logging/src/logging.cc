@@ -24,13 +24,9 @@ std::string time_to_string(std::chrono::system_clock::time_point&& tp)
 
 
 
-namespace uni {
-namespace logrr {
+namespace uni::logging {
 
-
-/** logrr::SingleLineFormatter 
- */
-
+    
 std::string ConsoleFormat(const LogInfo& i) noexcept
 {
     std::string base = "";
@@ -54,7 +50,7 @@ std::string ConsoleFormat(const LogInfo& i) noexcept
 }
 
 
-/** logrr::JsonFormatter 
+/** uni::logging::JsonFormatter 
  */
 
 std::string JsonFormat(const LogInfo& i) noexcept
@@ -62,7 +58,7 @@ std::string JsonFormat(const LogInfo& i) noexcept
     nlohmann::ordered_json j = {
         {"timepoint", std::move(i.timepoint)},
         {"status_code", i.status},
-        {"status", logrr::obsolete_reason(i.status)},
+        {"status", status::obsolete_reason(i.status)},
         {"file", i.loc.file_name()},
         {"line", i.loc.line()},
         {"details", std::move(i.details)}
@@ -79,7 +75,7 @@ Format FormatIs(std::string_view name) noexcept
 }
 
 
-/** logrr::ConsoleSink 
+/** uni::logging::ConsoleSink 
  */
 
 std::unique_ptr<ConsoleSink> ConsoleSink::create(const YAML::Node& config)
@@ -107,7 +103,7 @@ bool ConsoleSink::log(const LogInfo& info) noexcept
 }
 
 
-/** logrr::FileSink 
+/** uni::logging::FileSink 
  */
 
 FileSink::FileSink(Format format) : 
@@ -188,7 +184,7 @@ bool FileSink::flush() noexcept
 }
 
 
-/** logrr::Logger 
+/** uni::logging::Logger 
  */
 
 Logger::Logger(const LogConfig& config) : level_(config.level), sinks_(std::move(config.sinks)) {}
@@ -203,11 +199,10 @@ void Logger::log(const LogInfo& info) const noexcept
 
 
 void Logger::log(
-    log_level level, 
+    status::log level, 
     std::string_view info, 
     std::vector<LogField>&& details,
     std::source_location loc
 ) const noexcept { log(LogInfo{level, info, std::move(details), std::move(loc)}); }
 
-} // namespace logrr
-} // namespace uni
+} // namespace uni::logging

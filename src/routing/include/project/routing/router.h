@@ -7,13 +7,12 @@
 #include <functional>
 
 #include "project/routing/routing_tree.h"
-#include "project/common/ret_status.h" 
+#include "project/common/status/retcode.h" 
 #include "project/routing/crypto.h"
-#include "project/logging/logging_system.h"
+#include "project/logging/manager/logging_system.h"
 
 
-namespace uni {
-namespace http {
+namespace uni::routing {
 
 class RouterBase
 {
@@ -26,7 +25,7 @@ public:
     virtual bool del(std::string_view path, Handler&& h) noexcept = 0;
     virtual bool patch(std::string_view path, Handler&& h) noexcept = 0;
 
-    virtual std::optional<Response> route(Request req) const noexcept = 0;
+    virtual std::optional<server::http::Response> route(server::http::Request req) const noexcept = 0;
 };
 
 
@@ -51,7 +50,7 @@ public:
     bool del(std::string_view path, Handler&& h) noexcept override;
     bool patch(std::string_view path, Handler&& h) noexcept override;
 
-    std::optional<Response> route(Request req) const noexcept override;
+    std::optional<server::http::Response> route(server::http::Request req) const noexcept override;
 private:
     RoutingTree<HashKey, Hash> rtree_;
 };
@@ -60,46 +59,46 @@ private:
 template <typename HashKey, typename Hash>
 bool Router<HashKey, Hash>::get(std::string_view path, Handler&& h) noexcept
 {
-    return rtree_.add(Method::GET, path, std::move(h));
+    return rtree_.add(server::http::Method::GET, path, std::move(h));
 }
 
 
 template <typename HashKey, typename Hash>
 bool Router<HashKey, Hash>::post(std::string_view path, Handler&& h) noexcept
 {
-    return rtree_.add(Method::POST, path, std::move(h));
+    return rtree_.add(server::http::Method::POST, path, std::move(h));
 }
 
 
 template <typename HashKey, typename Hash>
 bool Router<HashKey, Hash>::put(std::string_view path, Handler&& h) noexcept
 {
-    return rtree_.add(Method::PUT, path, std::move(h));
+    return rtree_.add(server::http::Method::PUT, path, std::move(h));
 }
 
 
 template <typename HashKey, typename Hash>
 bool Router<HashKey, Hash>::del(std::string_view path, Handler&& h) noexcept
 {
-    return rtree_.add(Method::DELETE, path, std::move(h));
+    return rtree_.add(server::http::Method::DELETE, path, std::move(h));
 }
 
 
 template <typename HashKey, typename Hash>
 bool Router<HashKey, Hash>::patch(std::string_view path, Handler&& h) noexcept
 {
-    return rtree_.add(Method::PATCH, path, std::move(h));
+    return rtree_.add(server::http::Method::PATCH, path, std::move(h));
 }
 
 
 template <typename HashKey, typename Hash>
-std::optional<Response> Router<HashKey, Hash>::route(Request req) const noexcept 
+std::optional<server::http::Response> Router<HashKey, Hash>::route(server::http::Request req) const noexcept 
 {
     Handler h = rtree_.get(req.method, req.path);
     if (!h) {
         return std::nullopt;
     }
-    Response resp = h(std::move(req));
+    server::http::Response resp = h(std::move(req));
     return resp;
 }
 
@@ -125,7 +124,7 @@ public:
     static bool Del(std::string_view path, Handler h);
     static bool Patch(std::string_view path, Handler h);
     
-    static std::optional<Response> Route(const Request& req) noexcept;
+    static std::optional<server::http::Response> Route(const server::http::Request& req) noexcept;
 private:
     inline static std::unique_ptr<RouterBase> router_ = nullptr;
 };
@@ -152,7 +151,6 @@ void RouterManager::Init(const HashKey& key)
     router_ = std::make_unique<Router<HashKey, Hash>>(key);
 }
 
-} // namespace http
-} // namespace uni
+} // namespace uni::routing
 
 #endif

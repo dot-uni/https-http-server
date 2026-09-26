@@ -1,4 +1,5 @@
-#include "project/server/https_server.h"
+#include "project/server/http/https_server.h"
+
 
 using namespace uni;
 
@@ -10,17 +11,17 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    logrr::LogSystem::Start(argv[3]);
+    logging::manager::LogSystem::Start(argv[3]);
 
-    http::RouterManager::Init();
+    routing::RouterManager::Init();
 
-    http::RouterManager::Get("/uni", [](http::Request&& req){
-        return http::makeResp(http::retCode::Success, {
+    routing::RouterManager::Get("/uni", [](server::http::Request&& req){
+        return server::http::makeResp(common::status::retCode::Success, {
             {"Message", "The request was received and successfully processed..."}
         });
     });
 
-    https::HttpsServer server(argv[1], argv[2]);
+    server::http::HttpsServer server(argv[1], argv[2]);
     server.listen();
     return 0;
 }   

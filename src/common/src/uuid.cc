@@ -1,8 +1,7 @@
 #include "project/common/uuid.h"
 
 
-namespace uni {
-namespace uuid {
+namespace uni::common::uuid {
 
 std::string generate_uuid_v4() 
 {
@@ -24,5 +23,4 @@ std::string generate_uuid_v4()
     return ss.str();
 }
 
-} // namespace uuid
-} // namespace uni
+} // namespace uni::common::uuid 

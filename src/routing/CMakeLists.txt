@@ -13,6 +13,7 @@ target_link_libraries(project_routing
     PUBLIC
         project::common
         project::logging
+        project::server
     PRIVATE   
         fmt::fmt
         OpenSSL::Crypto

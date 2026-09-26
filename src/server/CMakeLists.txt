@@ -1,9 +1,11 @@
 add_library(project_server
-    src/http_codec.cc
-    src/http_connection.cc
-    src/http_server.cc
-    src/https_connection.cc
-    src/https_server.cc
+    # http
+    src/http/http_codec.cc
+    src/http/http_connection.cc
+    src/http/http_server.cc
+    src/http/https_connection.cc
+    src/http/https_server.cc
+    src/http/http_message.cc
 )
 
 add_library(project::server ALIAS project_server)

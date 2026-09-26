@@ -1,8 +1,11 @@
 #include "project/routing/router.h"
 
 
-namespace uni {
-namespace http {
+namespace uni::routing {
+
+namespace status = ::uni::common::status;
+using ::uni::logging::field;
+
 
 void RouterManager::Clear() noexcept
 {
@@ -15,18 +18,18 @@ bool RouterManager::Get(std::string_view path, Handler h)
 {
     if (!router_) {
         LOG_ERROR("Router not initialized", {
-            logrr::field("path", path)
+            field("path", path)
         });
         throw std::runtime_error("Router not initialized");
     }
 
     LOG_TRACE("Registering handler", {
-        logrr::field("path", path)
+        field("path", path)
     });
     bool result = router_->get(path, std::move(h));
     if (!result) {
         LOG_WARN("Failed to register handler", {
-            logrr::field("path", path)
+            field("path", path)
         });
     }
 
@@ -38,18 +41,18 @@ bool RouterManager::Post(std::string_view path, Handler h)
 {
     if (!router_) {
         LOG_ERROR("Router not initialized", {
-            logrr::field("path", path)
+            field("path", path)
         });
         throw std::runtime_error("Router not initialized");
     }
 
     LOG_TRACE("Registering handler", {
-        logrr::field("path", path)
+        field("path", path)
     });
     bool result = router_->post(path, std::move(h));
     if (!result) {
         LOG_WARN("Failed to register handler", {
-            logrr::field("path", path)
+            field("path", path)
         });
     }
 
@@ -61,18 +64,18 @@ bool RouterManager::Put(std::string_view path, Handler h)
 {
     if (!router_) {
         LOG_ERROR("Router not initialized", {
-            logrr::field("path", path)
+            field("path", path)
         });
         throw std::runtime_error("Router not initialized");
     }
 
     LOG_TRACE("Registering handler", {
-        logrr::field("path", path)
+        field("path", path)
     });
     bool result = router_->put(path, std::move(h));
     if (!result) {
         LOG_WARN("Failed to register handler", {
-            logrr::field("path", path)
+            field("path", path)
         });
     }
 
@@ -84,18 +87,18 @@ bool RouterManager::Del(std::string_view path, Handler h)
 {
     if (!router_) {
         LOG_ERROR("Router not initialized", {
-            logrr::field("path", path)
+            field("path", path)
         });
         throw std::runtime_error("Router not initialized");
     }
 
     LOG_TRACE("Registering handler", {
-        logrr::field("path", path)
+        field("path", path)
     });
     bool result = router_->del(path, std::move(h));
     if (!result) {
         LOG_WARN("Failed to register handler", {
-            logrr::field("path", path)
+            field("path", path)
         });
     }
 
@@ -107,18 +110,18 @@ bool RouterManager::Patch(std::string_view path, Handler h)
 {
     if (!router_) {
         LOG_ERROR("Router not initialized", {
-            logrr::field("path", path)
+            field("path", path)
         });
         throw std::runtime_error("Router not initialized");
     }
 
     LOG_TRACE("Registering handler", {
-        logrr::field("path", path)
+        field("path", path)
     });
     bool result = router_->patch(path, std::move(h));
     if (!result) {
         LOG_WARN("Failed to register handler", {
-            logrr::field("path", path)
+            field("path", path)
         });
     }
 
@@ -126,7 +129,7 @@ bool RouterManager::Patch(std::string_view path, Handler h)
 }
 
 
-std::optional<Response> RouterManager::Route(const Request& req) noexcept
+std::optional<server::http::Response> RouterManager::Route(const server::http::Request& req) noexcept
 {
     if (!router_) {
         LOG_ERROR("Router not initialized, request dropped");
@@ -138,10 +141,9 @@ std::optional<Response> RouterManager::Route(const Request& req) noexcept
 
     if (!response) {
         LOG_DEBUG("No matching route found");
-        return makeResp(retCode::NotFound, req.id);
+        return server::http::makeResp(status::retCode::NotFound, req.id);
     }
     return *response;
 }
 
-} // namespace http
-} // namespace uni
+} // namespace uni::routing

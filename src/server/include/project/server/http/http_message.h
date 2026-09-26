@@ -1,0 +1,100 @@
+#ifndef HTTP_MESSAGE_INCLUDED
+#define HTTP_MESSAGE_INCLUDED
+
+#include <nlohmann/json.hpp>
+#include <unordered_map>
+#include <utility>
+#include <algorithm>
+#include <functional>
+#include <cctype>
+#include <string>
+#include <chrono>
+
+#include "project/common/uuid.h"
+#include "project/common/status/http.h"
+#include "project/common/status/retcode.h"
+
+
+namespace uni::server::http {
+
+struct CaseInsensitiveHash {
+    size_t operator()(const std::string& s) const {
+        std::string lower = s;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                        [](unsigned char c) { return std::tolower(c); });
+        return std::hash<std::string>{}(lower);
+    }
+};
+
+struct CaseInsensitiveEqual {
+    bool operator()(const std::string& a, const std::string& b) const {
+        if (a.size() != b.size()) return false;
+        return std::equal(a.begin(), a.end(), b.begin(),
+            [](unsigned char c1, unsigned char c2) {
+                return std::tolower(c1) == std::tolower(c2);
+            });
+    }
+};
+
+
+enum class Method : uint8_t {
+    GET=0,
+    POST,
+    PUT,
+    DELETE,
+    PATCH,
+    UNKNOWN
+};
+
+constexpr std::string_view to_string(Method m)
+{
+    switch(static_cast<Method>(m)) {
+        case Method::GET:           return "GET";
+        case Method::POST:          return "POST";
+        case Method::PUT:           return "PUT";
+        case Method::DELETE:        return "DELETE";
+        case Method::PATCH:         return "PATCH";
+        default:
+            break;
+    }
+    return "UNKNOWN";
+}
+
+Method to_method(std::string_view s);
+
+struct Request 
+{
+    std::string id;
+    Method method = Method::UNKNOWN;
+    std::string path = "none";
+    std::string version = "HTTP/1.1";
+    std::unordered_map<std::string, std::string, 
+                       CaseInsensitiveHash, CaseInsensitiveEqual> headers;
+    nlohmann::ordered_json body;
+};
+
+
+struct Response 
+{
+    common::status::http status;
+    std::unordered_map<std::string, std::string, 
+                       CaseInsensitiveHash, CaseInsensitiveEqual> headers;
+    nlohmann::ordered_json body;
+};
+
+int64_t get_timestamp_ms();
+
+Response makeResp(
+    common::status::retCode retcode, 
+    const std::string& id, 
+    const nlohmann::ordered_json& result=nlohmann::json::object()
+);
+
+Response makeResp(
+    common::status::retCode retcode, 
+    const nlohmann::ordered_json& result=nlohmann::json::object()
+);
+
+} // namespace uni::server::http
+
+#endif

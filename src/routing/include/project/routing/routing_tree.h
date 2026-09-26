@@ -7,18 +7,16 @@
 #include <optional>
 #include <type_traits>
 
-#include "project/common/http_message.h"
+#include "project/server/http/http_message.h"
 #include "project/routing/crypto.h"
 
 
-
-namespace uni {
-namespace http {
+namespace uni::routing {
 
 static constexpr size_t kDefaultBucketCount = 10;
 static constexpr size_t kNumHTTPMethods = 5;
 
-using Handler = std::function<Response(Request&&)>;
+using Handler = std::function<server::http::Response(server::http::Request&&)>;
 
 
 template <
@@ -53,8 +51,8 @@ public:
 
     ~RoutingTree() = default;
 
-    bool add(http::Method mtd, std::string_view path, Handler&& h);
-    Handler get(http::Method mtd, std::string_view path) const noexcept;
+    bool add(server::http::Method mtd, std::string_view path, Handler&& h);
+    Handler get(server::http::Method mtd, std::string_view path) const noexcept;
 private:
     template <size_t... I>
     static RootRoutingTree make_root_impl(const std::shared_ptr<HashKey>& key, std::index_sequence<I...>)
@@ -64,7 +62,7 @@ private:
 
     static RootRoutingTree make_root(const std::shared_ptr<HashKey>& key)
     {
-        return make_root_impl(key, std::make_index_sequence<http::kNumHTTPMethods>{});
+        return make_root_impl(key, std::make_index_sequence<kNumHTTPMethods>{});
     }
 
     bool set_elem(HashMap& map, std::string_view elem, Handler&& h);
@@ -79,7 +77,7 @@ RoutingTree<HashKey, Hash>::RoutingTree(std::shared_ptr<HashKey> key) : key_(std
 
 
 template <typename HashKey, typename Hash>
-bool RoutingTree<HashKey, Hash>::add(http::Method mtd, std::string_view path, Handler&& h)
+bool RoutingTree<HashKey, Hash>::add(server::http::Method mtd, std::string_view path, Handler&& h)
 {
     size_t idx = static_cast<size_t>(mtd);
     if (idx >= root_.size()) return false; 
@@ -127,7 +125,7 @@ bool RoutingTree<HashKey, Hash>::add(http::Method mtd, std::string_view path, Ha
 
 
 template <typename HashKey, typename Hash>
-Handler RoutingTree<HashKey, Hash>::get(http::Method mtd, std::string_view path) const noexcept
+Handler RoutingTree<HashKey, Hash>::get(server::http::Method mtd, std::string_view path) const noexcept
 {
     size_t idx = static_cast<size_t>(mtd);
     if (idx >= root_.size()) return nullptr; 
@@ -194,7 +192,6 @@ bool RoutingTree<HashKey, Hash>::set_elem(HashMap& map, std::string_view elem, H
     return true;
 }
 
-} // namespace http
-} // namespace uni
+} // namespace uni::routing
 
 #endif
